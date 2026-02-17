@@ -12,9 +12,9 @@ This implementation keeps Elo intentionally simple:
 
 Elo systems are defined as TOML files in:
 
-- `configs/elo_systems/`
+- `configs/ratings/elo/`
 
-Example (`configs/elo_systems/default.toml`):
+Example (`configs/ratings/elo/default.toml`):
 
 ```toml
 [system]
@@ -119,7 +119,7 @@ Script framework:
 The script:
 
 1. Creates `team_elo` if it does not exist.
-2. Loads all `*.toml` files from `configs/elo_systems/`.
+2. Loads all `*.toml` files from `configs/ratings/elo/`.
 3. For each config, reads finished maps in chronological order from `matches` + `maps` using that config's `lookback_days`.
 4. Upserts a row in `elo_systems` using the config name + payload.
 5. Recomputes Elo deterministically from scratch.
@@ -145,7 +145,7 @@ Optional arguments:
 
 ```bash
 venv/bin/python scripts/rebuild_team_elo.py \
-  --config-dir configs/elo_systems \
+  --config-dir configs/ratings/elo \
   --config-name default.toml \
   --batch-size 5000
 ```

@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from elo.team_elo import (
+from domain.ratings.elo.calculator import (
     EloParameters,
     TeamEloCalculator,
-    TeamMapResult,
     calculate_expected_score,
 )
+from domain.ratings.common import TeamMapResult
 
 
 def test_elo_parameters_defaults_are_expected_constants() -> None:

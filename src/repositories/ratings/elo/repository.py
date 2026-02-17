@@ -29,8 +29,10 @@ from sqlalchemy import (
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from elo.team_elo import TeamEloEvent, TeamMapResult
-from models import Base, EloSystem, TeamElo
+from models.base import Base
+from models.ratings.elo import EloSystem, TeamElo
+from domain.ratings.common import TeamMapResult
+from domain.ratings.elo.calculator import TeamEloEvent
 
 _metadata = MetaData()
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild map-level team Elo history into the team_elo table."""
+"""Rebuild map-level team OpenSkill history into the team_openskill table."""
 
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -16,28 +15,28 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from db import create_db_engine, create_session_factory
-from domain.ratings.elo.config import EloSystemConfig, load_elo_system_configs
-from domain.ratings.elo.calculator import TeamEloCalculator, TeamEloEvent
-from repositories.ratings.elo.repository import (
+from domain.ratings.openskill.config import OpenSkillSystemConfig, load_openskill_system_configs
+from domain.ratings.openskill.calculator import TeamOpenSkillCalculator, TeamOpenSkillEvent
+from repositories.ratings.openskill.repository import (
     count_tracked_teams,
-    delete_team_elo_for_system,
-    ensure_team_elo_schema,
+    delete_team_openskill_for_system,
+    ensure_team_openskill_schema,
     fetch_map_results,
-    insert_team_elo_events,
-    upsert_elo_system,
+    insert_team_openskill_events,
+    upsert_openskill_system,
 )
 
 DEFAULT_DB_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/cs2predictor"
-DEFAULT_CONFIG_DIR = ROOT_DIR / "configs" / "ratings" / "elo"
+DEFAULT_CONFIG_DIR = ROOT_DIR / "configs" / "ratings" / "openskill"
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Team Elo jobs.",
+    help="Team OpenSkill jobs.",
 )
 
 
-def _flush_batch(batch: list[TeamEloEvent]) -> list[TeamEloEvent]:
+def _flush_batch(batch: list[TeamOpenSkillEvent]) -> list[TeamOpenSkillEvent]:
     payload = batch[:]
     batch.clear()
     return payload
@@ -46,7 +45,7 @@ def _flush_batch(batch: list[TeamEloEvent]) -> list[TeamEloEvent]:
 def _run_single_system(
     *,
     session_factory,
-    system_config: EloSystemConfig,
+    system_config: OpenSkillSystemConfig,
     batch_size: int,
     dry_run: bool,
 ) -> None:
@@ -55,36 +54,31 @@ def _run_single_system(
         lookback = None if system_config.lookback_days == 0 else system_config.lookback_days
         map_results = fetch_map_results(session, lookback_days=lookback)
         total_maps = len(map_results)
-        calculator = TeamEloCalculator(
-            params=system_config.parameters,
-            lookback_days=lookback,
-            as_of_time=datetime.now(UTC).replace(tzinfo=None),
-        )
+        calculator = TeamOpenSkillCalculator(params=system_config.parameters)
 
-        elo_system = upsert_elo_system(
+        openskill_system = upsert_openskill_system(
             session,
             name=system_config.name,
             description=system_config.description,
             config_json=system_config.as_config_json(),
         )
-        elo_system_id = elo_system.id
+        openskill_system_id = openskill_system.id
 
         if dry_run:
             for map_result in map_results:
                 calculator.process_map(map_result)
             typer.echo(
                 f"[dry-run] config={system_config.file_path.name} "
-                f"elo_system={system_config.name} "
+                f"openskill_system={system_config.name} "
                 f"processed_maps={total_maps} "
                 f"tracked_teams={calculator.tracked_team_count()}"
             )
             session.rollback()
             return
 
-        buffered_events: list[TeamEloEvent] = []
+        buffered_events: list[TeamOpenSkillEvent] = []
         try:
-            # Replace rows only for this system so multiple systems can coexist.
-            delete_team_elo_for_system(session, elo_system_id)
+            delete_team_openskill_for_system(session, openskill_system_id)
 
             for index, map_result in enumerate(map_results, start=1):
                 team1_event, team2_event = calculator.process_map(map_result)
@@ -93,7 +87,7 @@ def _run_single_system(
 
                 if len(buffered_events) >= batch_size:
                     payload = _flush_batch(buffered_events)
-                    insert_team_elo_events(session, payload, elo_system_id=elo_system_id)
+                    insert_team_openskill_events(session, payload, openskill_system_id=openskill_system_id)
                     inserted_events += len(payload)
 
                 if index % 10_000 == 0:
@@ -104,7 +98,7 @@ def _run_single_system(
 
             if buffered_events:
                 payload = _flush_batch(buffered_events)
-                insert_team_elo_events(session, payload, elo_system_id=elo_system_id)
+                insert_team_openskill_events(session, payload, openskill_system_id=openskill_system_id)
                 inserted_events += len(payload)
 
             session.commit()
@@ -112,12 +106,12 @@ def _run_single_system(
             session.rollback()
             raise
 
-        tracked_teams = count_tracked_teams(session, elo_system_id=elo_system_id)
+        tracked_teams = count_tracked_teams(session, openskill_system_id=openskill_system_id)
         typer.echo(
             "completed "
             f"config={system_config.file_path.name} "
-            f"elo_system={system_config.name} "
-            f"elo_system_id={elo_system_id} "
+            f"openskill_system={system_config.name} "
+            f"openskill_system_id={openskill_system_id} "
             f"processed_maps={total_maps} "
             f"inserted_events={inserted_events} "
             f"tracked_teams={tracked_teams}"
@@ -125,7 +119,7 @@ def _run_single_system(
 
 
 @app.command()
-def rebuild_team_elo(
+def rebuild_team_openskill(
     db_url: Annotated[
         str,
         typer.Option(
@@ -139,7 +133,7 @@ def rebuild_team_elo(
         Path,
         typer.Option(
             "--config-dir",
-            help="Directory containing Elo system TOML config files.",
+            help="Directory containing OpenSkill system TOML config files.",
         ),
     ] = DEFAULT_CONFIG_DIR,
     config_name: Annotated[
@@ -151,18 +145,18 @@ def rebuild_team_elo(
     ] = None,
     batch_size: Annotated[
         int,
-        typer.Option("--batch-size", help="Batch size for inserting Elo events."),
+        typer.Option("--batch-size", help="Batch size for inserting OpenSkill events."),
     ] = 5000,
     dry_run: Annotated[
         bool,
-        typer.Option("--dry-run", help="Compute Elo without writing to team_elo."),
+        typer.Option("--dry-run", help="Compute OpenSkill without writing to team_openskill."),
     ] = False,
 ) -> None:
-    """Recompute team Elo for all configs in a directory."""
+    """Recompute team OpenSkill for all configs in a directory."""
     if batch_size <= 0:
         raise typer.BadParameter("--batch-size must be greater than 0")
 
-    configs = load_elo_system_configs(config_dir)
+    configs = load_openskill_system_configs(config_dir)
     if config_name is not None:
         configs = [config for config in configs if config.file_path.name == config_name]
         if not configs:
@@ -172,7 +166,7 @@ def rebuild_team_elo(
             )
 
     engine = create_db_engine(db_url)
-    ensure_team_elo_schema(engine)
+    ensure_team_openskill_schema(engine)
     session_factory = create_session_factory(engine)
 
     typer.echo(f"loaded_configs={len(configs)} config_dir={config_dir}")

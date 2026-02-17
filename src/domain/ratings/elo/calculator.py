@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import exp, log
 
+from domain.ratings.common import TeamMapResult
+
 
 @dataclass(frozen=True)
 class EloParameters:
@@ -24,23 +26,6 @@ class EloParameters:
     bo1_match_multiplier: float = 1.0
     bo3_match_multiplier: float = 1.0
     bo5_match_multiplier: float = 1.0
-
-
-@dataclass(frozen=True)
-class TeamMapResult:
-    match_id: int
-    map_id: int
-    map_number: int
-    event_time: datetime
-    team1_id: int
-    team2_id: int
-    winner_id: int
-    team1_score: int | None = None
-    team2_score: int | None = None
-    team1_kd_ratio: float | None = None
-    team2_kd_ratio: float | None = None
-    is_lan: bool = False
-    match_format: str | None = None
 
 
 @dataclass(frozen=True)

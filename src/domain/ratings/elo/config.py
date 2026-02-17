@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 import tomllib
 
-from elo.team_elo import EloParameters
+from domain.ratings.elo.calculator import EloParameters
 
 
 @dataclass(frozen=True)

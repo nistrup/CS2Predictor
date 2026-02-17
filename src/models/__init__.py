@@ -1,7 +1,6 @@
 """ORM models."""
 
-from models.elo_system import EloSystem
 from models.base import Base
-from models.team_elo import TeamElo
+from models.ratings import EloSystem, Glicko2System, OpenSkillSystem, TeamElo, TeamGlicko2, TeamOpenSkill
 
-__all__ = ["Base", "EloSystem", "TeamElo"]
+__all__ = ["Base", "EloSystem", "Glicko2System", "OpenSkillSystem", "TeamElo", "TeamGlicko2", "TeamOpenSkill"]

@@ -35,6 +35,9 @@ Primary target: **winner of a given matchup** (team A vs team B), for both pre-g
 ## Project Structure
 
 - `src/`: Python package code (core logic and repositories).
+- `src/domain/ratings/`: rating-system modules grouped by algorithm (`elo`, `glicko2`, `openskill`) plus shared types.
+- `src/models/ratings/`: ORM models grouped by algorithm, matching `src/domain/ratings/`.
+- `src/repositories/ratings/`: persistence modules grouped by algorithm, matching `src/domain/ratings/`.
 - `scripts/`: executable scripts for backfills and data jobs.
 - `tests/`: unit tests for core calculation logic.
 - `docs/`: design and reference documentation.
@@ -46,7 +49,7 @@ Team Elo v1 is a map-level, team-only Elo system with per-system versioning and 
 
 - `elo_systems`: stores each system definition and config snapshot.
 - `team_elo`: stores one row per team per map, keyed by `elo_system_id`.
-- `configs/elo_systems/*.toml`: file-based Elo system definitions.
+- `configs/ratings/elo/*.toml`: file-based Elo system definitions.
 
 Implementation docs:
 
@@ -135,7 +138,85 @@ venv/bin/python scripts/show_team_elo_top.py \
   --min-recent-maps 1
 ```
 
-Tune by creating a new config file under `configs/elo_systems/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`. Automated hyperparameter tuning is intentionally deferred for now.
+Tune by creating a new config file under `configs/ratings/elo/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`. Automated hyperparameter tuning is intentionally deferred for now.
+
+Run `default.toml` for all three systems in one command:
+
+```bash
+venv/bin/python scripts/rebuild_all_default_ratings.py --config-name default.toml
+```
+
+## Team Glicko-2 v1
+
+Team Glicko-2 v1 is implemented in parallel to Elo for side-by-side comparison.
+
+- `glicko2_systems`: stores each Glicko-2 system definition and config snapshot.
+- `team_glicko2`: stores one row per team per map, keyed by `glicko2_system_id`.
+- `configs/ratings/glicko2/*.toml`: file-based Glicko-2 system definitions.
+
+Implementation docs:
+
+- `docs/team_glicko2_v1.md`
+
+Quick start:
+
+```bash
+venv/bin/python scripts/rebuild_team_glicko2.py
+```
+
+Run a single config:
+
+```bash
+venv/bin/python scripts/rebuild_team_glicko2.py --config-name default.toml
+```
+
+Show top teams for one Glicko-2 system, filtering inactive teams:
+
+```bash
+venv/bin/python scripts/show_team_glicko2_top.py \
+  --system-name team_glicko2_default \
+  --top-n 20 \
+  --active-window-days 90 \
+  --min-recent-maps 1
+```
+
+Tune by creating a new config file under `configs/ratings/glicko2/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`.
+
+## Team OpenSkill v1
+
+Team OpenSkill v1 is implemented in parallel to Elo/Glicko-2 using the OpenSkill Plackett-Luce model.
+
+- `openskill_systems`: stores each OpenSkill system definition and config snapshot.
+- `team_openskill`: stores one row per team per map, keyed by `openskill_system_id`.
+- `configs/ratings/openskill/*.toml`: file-based OpenSkill system definitions.
+
+Implementation docs:
+
+- `docs/team_openskill_v1.md`
+
+Quick start:
+
+```bash
+venv/bin/python scripts/rebuild_team_openskill.py
+```
+
+Run a single config:
+
+```bash
+venv/bin/python scripts/rebuild_team_openskill.py --config-name default.toml
+```
+
+Show top teams for one OpenSkill system, filtering inactive teams:
+
+```bash
+venv/bin/python scripts/show_team_openskill_top.py \
+  --system-name team_openskill_default \
+  --top-n 20 \
+  --active-window-days 90 \
+  --min-recent-maps 1
+```
+
+Tune by creating a new config file under `configs/ratings/openskill/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`.
 
 Run tests:
 

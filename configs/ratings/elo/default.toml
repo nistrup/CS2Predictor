@@ -1,7 +1,7 @@
 [system]
 name = "team_elo_default"
 description = "Pure baseline team Elo (no upset bonus, no BO3/BO5 weighting)"
-lookback_days = 365
+lookback_days = 0
 
 [elo]
 initial_elo = 1500.0
