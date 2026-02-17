@@ -25,18 +25,20 @@ class TeamElo(Base):
 
     __tablename__ = "team_elo"
     __table_args__ = (
-        UniqueConstraint("team_id", "map_id", name="uq_team_elo_team_map"),
+        UniqueConstraint("elo_system_id", "team_id", "map_id", name="uq_team_elo_system_team_map"),
         CheckConstraint("actual_score IN (0.0, 1.0)", name="ck_team_elo_actual_score"),
         CheckConstraint(
             "expected_score >= 0.0 AND expected_score <= 1.0",
             name="ck_team_elo_expected_score",
         ),
-        Index("idx_team_elo_team_event", "team_id", "event_time", "map_id"),
+        Index("idx_team_elo_system", "elo_system_id"),
+        Index("idx_team_elo_system_team_event", "elo_system_id", "team_id", "event_time", "map_id"),
         Index("idx_team_elo_match", "match_id"),
         Index("idx_team_elo_map", "map_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    elo_system_id: Mapped[int] = mapped_column(ForeignKey("elo_systems.id"), nullable=False)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
     opponent_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
     match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), nullable=False)

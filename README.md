@@ -42,9 +42,11 @@ Primary target: **winner of a given matchup** (team A vs team B), for both pre-g
 
 ## Team Elo v1
 
-Team Elo v1 is implemented as a map-level, team-only Elo calculation with a single table:
+Team Elo v1 is implemented as a map-level, team-only Elo calculation with system versioning:
 
-- `team_elo`
+- `elo_systems` (stores config per Elo system)
+- `team_elo` (stores events keyed by `elo_system_id`)
+- file-based system configs in `configs/elo_systems/*.toml`
 
 Implementation docs:
 
@@ -54,7 +56,13 @@ Quick start:
 
 ```bash
 venv/bin/pip install -r requirements.txt
-venv/bin/python scripts/rebuild_team_elo.py rebuild
+venv/bin/python scripts/rebuild_team_elo.py
+```
+
+Run a single config file:
+
+```bash
+venv/bin/python scripts/rebuild_team_elo.py --config-name default.toml
 ```
 
 Run tests:

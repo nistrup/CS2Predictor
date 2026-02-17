@@ -1,0 +1,19 @@
+[system]
+name = "team_elo_conservative"
+description = "Lower-volatility Elo for comparison"
+lookback_days = 365
+
+[elo]
+initial_elo = 1500.0
+k_factor = 16.0
+scale_factor = 450.0
+even_multiplier = 0.75
+favored_multiplier = 0.75
+unfavored_multiplier = 1.1
+lan_multiplier = 1.0
+round_domination_multiplier = 1.0
+kd_ratio_domination_multiplier = 1.0
+recency_min_multiplier = 1.0
+bo1_match_multiplier = 1.0
+bo3_match_multiplier = 1.05
+bo5_match_multiplier = 1.1

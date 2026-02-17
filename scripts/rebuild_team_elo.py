@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -15,16 +16,19 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from db import create_db_engine, create_session_factory
-from elo.team_elo import EloParameters, TeamEloCalculator, TeamEloEvent
+from elo.system_config import EloSystemConfig, load_elo_system_configs
+from elo.team_elo import TeamEloCalculator, TeamEloEvent
 from repositories.team_elo_repository import (
     count_tracked_teams,
+    delete_team_elo_for_system,
     ensure_team_elo_schema,
     fetch_map_results,
     insert_team_elo_events,
-    truncate_team_elo,
+    upsert_elo_system,
 )
 
 DEFAULT_DB_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/cs2predictor"
+DEFAULT_CONFIG_DIR = ROOT_DIR / "configs" / "elo_systems"
 
 app = typer.Typer(
     add_completion=False,
@@ -39,7 +43,88 @@ def _flush_batch(batch: list[TeamEloEvent]) -> list[TeamEloEvent]:
     return payload
 
 
-@app.command("rebuild")
+def _run_single_system(
+    *,
+    session_factory,
+    system_config: EloSystemConfig,
+    batch_size: int,
+    dry_run: bool,
+) -> None:
+    inserted_events = 0
+    with session_factory() as session:
+        lookback = None if system_config.lookback_days == 0 else system_config.lookback_days
+        map_results = fetch_map_results(session, lookback_days=lookback)
+        total_maps = len(map_results)
+        calculator = TeamEloCalculator(
+            params=system_config.parameters,
+            lookback_days=lookback,
+            as_of_time=datetime.now(UTC).replace(tzinfo=None),
+        )
+
+        elo_system = upsert_elo_system(
+            session,
+            name=system_config.name,
+            description=system_config.description,
+            config_json=system_config.as_config_json(),
+        )
+        elo_system_id = elo_system.id
+
+        if dry_run:
+            for map_result in map_results:
+                calculator.process_map(map_result)
+            typer.echo(
+                f"[dry-run] config={system_config.file_path.name} "
+                f"elo_system={system_config.name} "
+                f"processed_maps={total_maps} "
+                f"tracked_teams={calculator.tracked_team_count()}"
+            )
+            session.rollback()
+            return
+
+        buffered_events: list[TeamEloEvent] = []
+        try:
+            # Replace rows only for this system so multiple systems can coexist.
+            delete_team_elo_for_system(session, elo_system_id)
+
+            for index, map_result in enumerate(map_results, start=1):
+                team1_event, team2_event = calculator.process_map(map_result)
+                buffered_events.append(team1_event)
+                buffered_events.append(team2_event)
+
+                if len(buffered_events) >= batch_size:
+                    payload = _flush_batch(buffered_events)
+                    insert_team_elo_events(session, payload, elo_system_id=elo_system_id)
+                    inserted_events += len(payload)
+
+                if index % 10_000 == 0:
+                    typer.echo(
+                        f"config={system_config.file_path.name} "
+                        f"processed_maps={index}/{total_maps}"
+                    )
+
+            if buffered_events:
+                payload = _flush_batch(buffered_events)
+                insert_team_elo_events(session, payload, elo_system_id=elo_system_id)
+                inserted_events += len(payload)
+
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+        tracked_teams = count_tracked_teams(session, elo_system_id=elo_system_id)
+        typer.echo(
+            "completed "
+            f"config={system_config.file_path.name} "
+            f"elo_system={system_config.name} "
+            f"elo_system_id={elo_system_id} "
+            f"processed_maps={total_maps} "
+            f"inserted_events={inserted_events} "
+            f"tracked_teams={tracked_teams}"
+        )
+
+
+@app.command()
 def rebuild_team_elo(
     db_url: Annotated[
         str,
@@ -50,9 +135,20 @@ def rebuild_team_elo(
             ),
         ),
     ] = DEFAULT_DB_URL,
-    initial_elo: Annotated[float, typer.Option("--initial-elo")] = 1500.0,
-    k_factor: Annotated[float, typer.Option("--k-factor")] = 20.0,
-    scale_factor: Annotated[float, typer.Option("--scale-factor")] = 400.0,
+    config_dir: Annotated[
+        Path,
+        typer.Option(
+            "--config-dir",
+            help="Directory containing Elo system TOML config files.",
+        ),
+    ] = DEFAULT_CONFIG_DIR,
+    config_name: Annotated[
+        str | None,
+        typer.Option(
+            "--config-name",
+            help="Optional single config filename (for example: default.toml).",
+        ),
+    ] = None,
     batch_size: Annotated[
         int,
         typer.Option("--batch-size", help="Batch size for inserting Elo events."),
@@ -62,63 +158,30 @@ def rebuild_team_elo(
         typer.Option("--dry-run", help="Compute Elo without writing to team_elo."),
     ] = False,
 ) -> None:
-    """Recompute team Elo from maps in chronological order."""
+    """Recompute team Elo for all configs in a directory."""
     if batch_size <= 0:
         raise typer.BadParameter("--batch-size must be greater than 0")
 
-    params = EloParameters(
-        initial_elo=initial_elo,
-        k_factor=k_factor,
-        scale_factor=scale_factor,
-    )
+    configs = load_elo_system_configs(config_dir)
+    if config_name is not None:
+        configs = [config for config in configs if config.file_path.name == config_name]
+        if not configs:
+            raise typer.BadParameter(
+                f"No config named '{config_name}' found in {config_dir}",
+                param_hint="--config-name",
+            )
 
     engine = create_db_engine(db_url)
     ensure_team_elo_schema(engine)
     session_factory = create_session_factory(engine)
 
-    inserted_events = 0
-    with session_factory() as session:
-        map_results = fetch_map_results(session)
-        total_maps = len(map_results)
-        calculator = TeamEloCalculator(params=params)
-
-        if dry_run:
-            for map_result in map_results:
-                calculator.process_map(map_result)
-            typer.echo(
-                f"[dry-run] processed_maps={total_maps} "
-                f"tracked_teams={calculator.tracked_team_count()}"
-            )
-            return
-
-        buffered_events: list[TeamEloEvent] = []
-        with session.begin():
-            truncate_team_elo(session)
-
-            for index, map_result in enumerate(map_results, start=1):
-                team1_event, team2_event = calculator.process_map(map_result)
-                buffered_events.append(team1_event)
-                buffered_events.append(team2_event)
-
-                if len(buffered_events) >= batch_size:
-                    payload = _flush_batch(buffered_events)
-                    insert_team_elo_events(session, payload)
-                    inserted_events += len(payload)
-
-                if index % 10_000 == 0:
-                    typer.echo(f"processed_maps={index}/{total_maps}")
-
-            if buffered_events:
-                payload = _flush_batch(buffered_events)
-                insert_team_elo_events(session, payload)
-                inserted_events += len(payload)
-
-        tracked_teams = count_tracked_teams(session)
-        typer.echo(
-            "completed "
-            f"processed_maps={total_maps} "
-            f"inserted_events={inserted_events} "
-            f"tracked_teams={tracked_teams}"
+    typer.echo(f"loaded_configs={len(configs)} config_dir={config_dir}")
+    for config in configs:
+        _run_single_system(
+            session_factory=session_factory,
+            system_config=config,
+            batch_size=batch_size,
+            dry_run=dry_run,
         )
 
 

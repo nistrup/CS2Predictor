@@ -1,0 +1,136 @@
+"""Load Elo system definitions from TOML files."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+import tomllib
+
+from elo.team_elo import EloParameters
+
+
+@dataclass(frozen=True)
+class EloSystemConfig:
+    """Configuration for one Elo system rebuild."""
+
+    file_path: Path
+    name: str
+    description: str | None
+    lookback_days: int
+    parameters: EloParameters
+
+    def as_config_json(self) -> dict[str, Any]:
+        return {
+            "initial_elo": self.parameters.initial_elo,
+            "k_factor": self.parameters.k_factor,
+            "scale_factor": self.parameters.scale_factor,
+            "lookback_days": self.lookback_days,
+            "even_multiplier": self.parameters.even_multiplier,
+            "favored_multiplier": self.parameters.favored_multiplier,
+            "unfavored_multiplier": self.parameters.unfavored_multiplier,
+            "lan_multiplier": self.parameters.lan_multiplier,
+            "round_domination_multiplier": self.parameters.round_domination_multiplier,
+            "kd_ratio_domination_multiplier": self.parameters.kd_ratio_domination_multiplier,
+            "recency_min_multiplier": self.parameters.recency_min_multiplier,
+            "bo1_match_multiplier": self.parameters.bo1_match_multiplier,
+            "bo3_match_multiplier": self.parameters.bo3_match_multiplier,
+            "bo5_match_multiplier": self.parameters.bo5_match_multiplier,
+        }
+
+
+def load_elo_system_configs(config_dir: Path) -> list[EloSystemConfig]:
+    """Load and validate all Elo system TOML config files in a directory."""
+    if not config_dir.exists():
+        raise FileNotFoundError(f"Config directory not found: {config_dir}")
+    if not config_dir.is_dir():
+        raise NotADirectoryError(f"Config path is not a directory: {config_dir}")
+
+    config_files = sorted(config_dir.glob("*.toml"))
+    if not config_files:
+        raise ValueError(f"No .toml config files found in: {config_dir}")
+
+    systems: list[EloSystemConfig] = []
+    for file_path in config_files:
+        systems.append(_load_single_config(file_path))
+
+    names = [system.name for system in systems]
+    if len(names) != len(set(names)):
+        raise ValueError(f"Duplicate elo system names found in {config_dir}: {names}")
+
+    return systems
+
+
+def _load_single_config(file_path: Path) -> EloSystemConfig:
+    with file_path.open("rb") as file:
+        raw = tomllib.load(file)
+
+    system_raw = raw.get("system", {})
+    elo_raw = raw.get("elo", {})
+
+    name = str(system_raw.get("name", "")).strip()
+    if not name:
+        raise ValueError(f"{file_path}: [system].name is required")
+
+    description_value = system_raw.get("description")
+    description = None if description_value is None else str(description_value)
+
+    lookback_days = int(system_raw.get("lookback_days", 365))
+    if lookback_days < 0:
+        raise ValueError(f"{file_path}: [system].lookback_days must be >= 0")
+
+    parameters = EloParameters(
+        initial_elo=float(elo_raw.get("initial_elo", 1500.0)),
+        k_factor=float(elo_raw.get("k_factor", 20.0)),
+        scale_factor=float(elo_raw.get("scale_factor", 400.0)),
+        even_multiplier=float(elo_raw.get("even_multiplier", 1.0)),
+        favored_multiplier=float(elo_raw.get("favored_multiplier", 1.0)),
+        unfavored_multiplier=float(elo_raw.get("unfavored_multiplier", 1.0)),
+        lan_multiplier=float(elo_raw.get("lan_multiplier", 1.0)),
+        round_domination_multiplier=float(
+            elo_raw.get("round_domination_multiplier", elo_raw.get("domination_multiplier", 1.0))
+        ),
+        kd_ratio_domination_multiplier=float(elo_raw.get("kd_ratio_domination_multiplier", 1.0)),
+        recency_min_multiplier=float(elo_raw.get("recency_min_multiplier", 1.0)),
+        bo1_match_multiplier=float(elo_raw.get("bo1_match_multiplier", 1.0)),
+        bo3_match_multiplier=float(elo_raw.get("bo3_match_multiplier", 1.0)),
+        bo5_match_multiplier=float(elo_raw.get("bo5_match_multiplier", 1.0)),
+    )
+    _validate_parameters(file_path=file_path, parameters=parameters)
+
+    return EloSystemConfig(
+        file_path=file_path,
+        name=name,
+        description=description,
+        lookback_days=lookback_days,
+        parameters=parameters,
+    )
+
+
+def _validate_parameters(*, file_path: Path, parameters: EloParameters) -> None:
+    if parameters.initial_elo <= 0.0:
+        raise ValueError(f"{file_path}: [elo].initial_elo must be > 0")
+    if parameters.k_factor <= 0.0:
+        raise ValueError(f"{file_path}: [elo].k_factor must be > 0")
+    if parameters.scale_factor <= 0.0:
+        raise ValueError(f"{file_path}: [elo].scale_factor must be > 0")
+    if parameters.even_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].even_multiplier must be > 0")
+    if parameters.favored_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].favored_multiplier must be > 0")
+    if parameters.unfavored_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].unfavored_multiplier must be > 0")
+    if parameters.lan_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].lan_multiplier must be > 0")
+    if parameters.round_domination_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].round_domination_multiplier must be > 0")
+    if parameters.kd_ratio_domination_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].kd_ratio_domination_multiplier must be > 0")
+    if parameters.recency_min_multiplier < 0.0 or parameters.recency_min_multiplier > 1.0:
+        raise ValueError(f"{file_path}: [elo].recency_min_multiplier must be between 0 and 1")
+    if parameters.bo1_match_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].bo1_match_multiplier must be > 0")
+    if parameters.bo3_match_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].bo3_match_multiplier must be > 0")
+    if parameters.bo5_match_multiplier <= 0.0:
+        raise ValueError(f"{file_path}: [elo].bo5_match_multiplier must be > 0")
