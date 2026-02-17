@@ -65,6 +65,39 @@ Run a single config file:
 venv/bin/python scripts/rebuild_team_elo.py --config-name default.toml
 ```
 
+Show top teams for one Elo system, filtering inactive teams:
+
+```bash
+venv/bin/python scripts/show_team_elo_top.py \
+  --system-name team_elo_default \
+  --top-n 20 \
+  --active-window-days 90 \
+  --min-recent-maps 1
+```
+
+Tune Elo parameters against a static HLTV target snapshot using Optuna:
+
+```bash
+venv/bin/python scripts/tune_team_elo_optuna.py \
+  --target-file configs/targets/hltv_world_2026-02-16_top20.json \
+  --trials 1000 \
+  --active-window-days 90 \
+  --min-recent-maps 1 \
+  --output-config configs/elo_systems/hltv_optuna_best.toml \
+  --output-system-name team_elo_hltv_optuna_best
+```
+
+Apply the tuned config and inspect the resulting top 20:
+
+```bash
+venv/bin/python scripts/rebuild_team_elo.py --config-name hltv_optuna_best.toml
+venv/bin/python scripts/show_team_elo_top.py \
+  --system-name team_elo_hltv_optuna_best \
+  --top-n 20 \
+  --active-window-days 90 \
+  --min-recent-maps 1
+```
+
 Run tests:
 
 ```bash

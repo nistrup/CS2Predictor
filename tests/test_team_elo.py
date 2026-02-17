@@ -22,10 +22,12 @@ def test_elo_parameters_defaults_are_expected_constants() -> None:
     assert params.even_multiplier == pytest.approx(1.0)
     assert params.favored_multiplier == pytest.approx(1.0)
     assert params.unfavored_multiplier == pytest.approx(1.0)
+    assert params.opponent_strength_weight == pytest.approx(1.0)
     assert params.lan_multiplier == pytest.approx(1.0)
     assert params.round_domination_multiplier == pytest.approx(1.0)
     assert params.kd_ratio_domination_multiplier == pytest.approx(1.0)
     assert params.recency_min_multiplier == pytest.approx(1.0)
+    assert params.inactivity_half_life_days == pytest.approx(0.0)
     assert params.bo1_match_multiplier == pytest.approx(1.0)
     assert params.bo3_match_multiplier == pytest.approx(1.0)
     assert params.bo5_match_multiplier == pytest.approx(1.0)
@@ -308,6 +310,79 @@ def test_favored_multiplier_increases_favorite_gain() -> None:
     )
 
     assert boosted_event.elo_delta > baseline_event.elo_delta
+
+
+def test_opponent_strength_weight_scales_win_gain_by_opponent_strength() -> None:
+    underdog_baseline = TeamEloCalculator(EloParameters(initial_elo=1500.0, k_factor=20.0))
+    underdog_weighted = TeamEloCalculator(
+        EloParameters(initial_elo=1500.0, k_factor=20.0, opponent_strength_weight=1.5)
+    )
+    underdog_baseline._ratings[100] = 1400.0
+    underdog_baseline._ratings[200] = 1600.0
+    underdog_weighted._ratings[100] = 1400.0
+    underdog_weighted._ratings[200] = 1600.0
+
+    underdog_baseline_event, _ = underdog_baseline.process_map(
+        TeamMapResult(
+            match_id=1,
+            map_id=1,
+            map_number=1,
+            event_time=datetime(2026, 1, 1, 12, 0, 0),
+            team1_id=100,
+            team2_id=200,
+            winner_id=100,
+            match_format="BO1",
+        )
+    )
+    underdog_weighted_event, _ = underdog_weighted.process_map(
+        TeamMapResult(
+            match_id=1,
+            map_id=1,
+            map_number=1,
+            event_time=datetime(2026, 1, 1, 12, 0, 0),
+            team1_id=100,
+            team2_id=200,
+            winner_id=100,
+            match_format="BO1",
+        )
+    )
+
+    favorite_baseline = TeamEloCalculator(EloParameters(initial_elo=1500.0, k_factor=20.0))
+    favorite_weighted = TeamEloCalculator(
+        EloParameters(initial_elo=1500.0, k_factor=20.0, opponent_strength_weight=1.5)
+    )
+    favorite_baseline._ratings[100] = 1600.0
+    favorite_baseline._ratings[200] = 1400.0
+    favorite_weighted._ratings[100] = 1600.0
+    favorite_weighted._ratings[200] = 1400.0
+
+    favorite_baseline_event, _ = favorite_baseline.process_map(
+        TeamMapResult(
+            match_id=2,
+            map_id=2,
+            map_number=1,
+            event_time=datetime(2026, 1, 1, 12, 0, 0),
+            team1_id=100,
+            team2_id=200,
+            winner_id=100,
+            match_format="BO1",
+        )
+    )
+    favorite_weighted_event, _ = favorite_weighted.process_map(
+        TeamMapResult(
+            match_id=2,
+            map_id=2,
+            map_number=1,
+            event_time=datetime(2026, 1, 1, 12, 0, 0),
+            team1_id=100,
+            team2_id=200,
+            winner_id=100,
+            match_format="BO1",
+        )
+    )
+
+    assert underdog_weighted_event.elo_delta > underdog_baseline_event.elo_delta
+    assert favorite_weighted_event.elo_delta < favorite_baseline_event.elo_delta
 
 
 def test_lan_multiplier_increases_lan_gain() -> None:
@@ -601,6 +676,84 @@ def test_recency_min_multiplier_default_keeps_old_maps_weighted() -> None:
     )
 
     assert oldest_event.elo_delta == pytest.approx(today_event.elo_delta)
+
+
+def test_inactivity_half_life_days_decays_ratings_toward_initial_between_maps() -> None:
+    base_time = datetime(2026, 1, 1, 12, 0, 0)
+
+    baseline = TeamEloCalculator(EloParameters(initial_elo=1500.0, k_factor=20.0))
+    decayed = TeamEloCalculator(
+        EloParameters(initial_elo=1500.0, k_factor=20.0, inactivity_half_life_days=30.0)
+    )
+
+    first_map = TeamMapResult(
+        match_id=1,
+        map_id=1,
+        map_number=1,
+        event_time=base_time,
+        team1_id=100,
+        team2_id=200,
+        winner_id=100,
+        match_format="BO1",
+    )
+    baseline.process_map(first_map)
+    decayed.process_map(first_map)
+
+    second_map = TeamMapResult(
+        match_id=2,
+        map_id=2,
+        map_number=1,
+        event_time=base_time + timedelta(days=60),
+        team1_id=100,
+        team2_id=200,
+        winner_id=100,
+        match_format="BO1",
+    )
+
+    baseline_event, _ = baseline.process_map(second_map)
+    decayed_event, _ = decayed.process_map(second_map)
+
+    assert decayed_event.pre_elo < baseline_event.pre_elo
+    assert decayed_event.elo_delta > baseline_event.elo_delta
+
+
+def test_inactivity_half_life_days_zero_disables_inactivity_decay() -> None:
+    base_time = datetime(2026, 1, 1, 12, 0, 0)
+
+    baseline = TeamEloCalculator(EloParameters(initial_elo=1500.0, k_factor=20.0))
+    disabled = TeamEloCalculator(
+        EloParameters(initial_elo=1500.0, k_factor=20.0, inactivity_half_life_days=0.0)
+    )
+
+    first_map = TeamMapResult(
+        match_id=1,
+        map_id=1,
+        map_number=1,
+        event_time=base_time,
+        team1_id=100,
+        team2_id=200,
+        winner_id=100,
+        match_format="BO1",
+    )
+    baseline.process_map(first_map)
+    disabled.process_map(first_map)
+
+    second_map = TeamMapResult(
+        match_id=2,
+        map_id=2,
+        map_number=1,
+        event_time=base_time + timedelta(days=120),
+        team1_id=100,
+        team2_id=200,
+        winner_id=100,
+        match_format="BO1",
+    )
+
+    baseline_event, _ = baseline.process_map(second_map)
+    disabled_event, _ = disabled.process_map(second_map)
+
+    assert disabled_event.pre_elo == pytest.approx(baseline_event.pre_elo)
+    assert disabled_event.elo_delta == pytest.approx(baseline_event.elo_delta)
 
 
 def test_bo1_bo3_and_bo5_default_multipliers_are_neutral() -> None:

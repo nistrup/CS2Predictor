@@ -29,10 +29,12 @@ class EloSystemConfig:
             "even_multiplier": self.parameters.even_multiplier,
             "favored_multiplier": self.parameters.favored_multiplier,
             "unfavored_multiplier": self.parameters.unfavored_multiplier,
+            "opponent_strength_weight": self.parameters.opponent_strength_weight,
             "lan_multiplier": self.parameters.lan_multiplier,
             "round_domination_multiplier": self.parameters.round_domination_multiplier,
             "kd_ratio_domination_multiplier": self.parameters.kd_ratio_domination_multiplier,
             "recency_min_multiplier": self.parameters.recency_min_multiplier,
+            "inactivity_half_life_days": self.parameters.inactivity_half_life_days,
             "bo1_match_multiplier": self.parameters.bo1_match_multiplier,
             "bo3_match_multiplier": self.parameters.bo3_match_multiplier,
             "bo5_match_multiplier": self.parameters.bo5_match_multiplier,
@@ -86,12 +88,14 @@ def _load_single_config(file_path: Path) -> EloSystemConfig:
         even_multiplier=float(elo_raw.get("even_multiplier", 1.0)),
         favored_multiplier=float(elo_raw.get("favored_multiplier", 1.0)),
         unfavored_multiplier=float(elo_raw.get("unfavored_multiplier", 1.0)),
+        opponent_strength_weight=float(elo_raw.get("opponent_strength_weight", 1.0)),
         lan_multiplier=float(elo_raw.get("lan_multiplier", 1.0)),
         round_domination_multiplier=float(
             elo_raw.get("round_domination_multiplier", elo_raw.get("domination_multiplier", 1.0))
         ),
         kd_ratio_domination_multiplier=float(elo_raw.get("kd_ratio_domination_multiplier", 1.0)),
         recency_min_multiplier=float(elo_raw.get("recency_min_multiplier", 1.0)),
+        inactivity_half_life_days=float(elo_raw.get("inactivity_half_life_days", 0.0)),
         bo1_match_multiplier=float(elo_raw.get("bo1_match_multiplier", 1.0)),
         bo3_match_multiplier=float(elo_raw.get("bo3_match_multiplier", 1.0)),
         bo5_match_multiplier=float(elo_raw.get("bo5_match_multiplier", 1.0)),
@@ -120,6 +124,8 @@ def _validate_parameters(*, file_path: Path, parameters: EloParameters) -> None:
         raise ValueError(f"{file_path}: [elo].favored_multiplier must be > 0")
     if parameters.unfavored_multiplier <= 0.0:
         raise ValueError(f"{file_path}: [elo].unfavored_multiplier must be > 0")
+    if parameters.opponent_strength_weight <= 0.0:
+        raise ValueError(f"{file_path}: [elo].opponent_strength_weight must be > 0")
     if parameters.lan_multiplier <= 0.0:
         raise ValueError(f"{file_path}: [elo].lan_multiplier must be > 0")
     if parameters.round_domination_multiplier <= 0.0:
@@ -128,6 +134,8 @@ def _validate_parameters(*, file_path: Path, parameters: EloParameters) -> None:
         raise ValueError(f"{file_path}: [elo].kd_ratio_domination_multiplier must be > 0")
     if parameters.recency_min_multiplier < 0.0 or parameters.recency_min_multiplier > 1.0:
         raise ValueError(f"{file_path}: [elo].recency_min_multiplier must be between 0 and 1")
+    if parameters.inactivity_half_life_days < 0.0:
+        raise ValueError(f"{file_path}: [elo].inactivity_half_life_days must be >= 0")
     if parameters.bo1_match_multiplier <= 0.0:
         raise ValueError(f"{file_path}: [elo].bo1_match_multiplier must be > 0")
     if parameters.bo3_match_multiplier <= 0.0:

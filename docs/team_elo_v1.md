@@ -29,10 +29,12 @@ scale_factor = 400.0
 even_multiplier = 1.0
 favored_multiplier = 1.0
 unfavored_multiplier = 1.0
+opponent_strength_weight = 1.0
 lan_multiplier = 1.0
 round_domination_multiplier = 1.0
 kd_ratio_domination_multiplier = 1.0
 recency_min_multiplier = 1.0
+inactivity_half_life_days = 0.0
 bo1_match_multiplier = 1.0
 bo3_match_multiplier = 1.0
 bo5_match_multiplier = 1.0
@@ -45,7 +47,9 @@ For Team A versus Team B:
 ```
 expected_A = 1 / (1 + 10 ^ ((elo_B - elo_A) / scale_factor))
 winner_multiplier = favored_multiplier | unfavored_multiplier | even_multiplier
-effective_k = k_factor * format_multiplier * winner_multiplier * lan_factor * round_domination_factor * kd_ratio_domination_factor * recency_factor
+opponent_strength_factor = opponent_strength_weight ^ ((0.5 - winner_expected_score) / 0.5)
+pre_map_elo_A = initial_elo + (prev_elo_A - initial_elo) * 2 ^ (-inactive_days_A / inactivity_half_life_days)
+effective_k = k_factor * format_multiplier * winner_multiplier * opponent_strength_factor * lan_factor * round_domination_factor * kd_ratio_domination_factor * recency_factor
 delta_A = effective_k * (actual_A - expected_A)
 post_elo_A = pre_elo_A + delta_A
 ```
@@ -58,6 +62,14 @@ Where:
   - winner Elo > loser Elo: `favored_multiplier`
   - winner Elo < loser Elo: `unfavored_multiplier`
   - equal Elo: `even_multiplier`
+- `opponent_strength_factor` is continuous:
+  - uses winner expected score from Elo
+  - `opponent_strength_weight=1.0` disables this factor
+  - `opponent_strength_weight>1.0` boosts wins against stronger opponents and reduces gains against weaker opponents
+- `pre_map_elo` can decay toward `initial_elo` during inactivity:
+  - controlled by `inactivity_half_life_days`
+  - `0.0` disables inactivity decay
+  - with a positive half-life, larger inactivity gaps shrink rating deviation from baseline before the next map
 - `lan_factor` is `lan_multiplier` when the match is LAN, otherwise `1.0`
 - `round_domination_factor` scales map impact by scoreline:
   - based on winner round share (for example, `13-0` > `13-11`)
@@ -69,7 +81,7 @@ Where:
   - at age `lookback_days`: `recency_min_multiplier`
   - `recency_min_multiplier=1.0` disables decay; `0.0` means oldest maps contribute `0`
 - `format_multiplier` defaults: `BO1=1.0`, `BO3=1.0`, `BO5=1.0`
-- defaults: `initial_elo=1500`, `k_factor=20`, `scale_factor=400`, `even_multiplier=1.0`, `favored_multiplier=1.0`, `unfavored_multiplier=1.0`, `lan_multiplier=1.0`, `round_domination_multiplier=1.0`, `kd_ratio_domination_multiplier=1.0`, `recency_min_multiplier=1.0`, `bo1_match_multiplier=1.0`, `bo3_match_multiplier=1.0`, `bo5_match_multiplier=1.0`
+- defaults: `initial_elo=1500`, `k_factor=20`, `scale_factor=400`, `even_multiplier=1.0`, `favored_multiplier=1.0`, `unfavored_multiplier=1.0`, `opponent_strength_weight=1.0`, `lan_multiplier=1.0`, `round_domination_multiplier=1.0`, `kd_ratio_domination_multiplier=1.0`, `recency_min_multiplier=1.0`, `inactivity_half_life_days=0.0`, `bo1_match_multiplier=1.0`, `bo3_match_multiplier=1.0`, `bo5_match_multiplier=1.0`
 
 ## Table Shape
 
@@ -142,6 +154,16 @@ Dry run:
 
 ```bash
 venv/bin/python scripts/rebuild_team_elo.py --dry-run
+```
+
+Show top teams with inactivity filter (example: require at least 1 map in last 90 days):
+
+```bash
+venv/bin/python scripts/show_team_elo_top.py \
+  --system-name team_elo_default \
+  --top-n 20 \
+  --active-window-days 90 \
+  --min-recent-maps 1
 ```
 
 Database URL:

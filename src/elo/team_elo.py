@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import exp, log
 
 
 @dataclass(frozen=True)
@@ -14,10 +15,12 @@ class EloParameters:
     even_multiplier: float = 1.0
     favored_multiplier: float = 1.0
     unfavored_multiplier: float = 1.0
+    opponent_strength_weight: float = 1.0
     lan_multiplier: float = 1.0
     round_domination_multiplier: float = 1.0
     kd_ratio_domination_multiplier: float = 1.0
     recency_min_multiplier: float = 1.0
+    inactivity_half_life_days: float = 0.0
     bo1_match_multiplier: float = 1.0
     bo3_match_multiplier: float = 1.0
     bo5_match_multiplier: float = 1.0
@@ -78,12 +81,37 @@ class TeamEloCalculator:
         self.lookback_days = lookback_days if lookback_days is not None and lookback_days > 0 else None
         self.as_of_time = as_of_time or datetime.now(UTC).replace(tzinfo=None)
         self._ratings: dict[int, float] = {}
+        self._last_event_times: dict[int, datetime] = {}
+        if self.params.inactivity_half_life_days > 0.0:
+            self._inactivity_decay_lambda = log(2.0) / self.params.inactivity_half_life_days
+        else:
+            self._inactivity_decay_lambda = 0.0
 
     def get_rating(self, team_id: int) -> float:
         return self._ratings.get(team_id, self.params.initial_elo)
 
     def tracked_team_count(self) -> int:
         return len(self._ratings)
+
+    def ratings(self) -> dict[int, float]:
+        """Return a snapshot of current team ratings."""
+        return dict(self._ratings)
+
+    def _apply_inactivity_decay(self, *, team_id: int, event_time: datetime) -> float:
+        rating = self.get_rating(team_id)
+        if self._inactivity_decay_lambda <= 0.0:
+            return rating
+
+        last_event_time = self._last_event_times.get(team_id)
+        if last_event_time is None:
+            return rating
+
+        inactive_days = (event_time - last_event_time).total_seconds() / 86_400.0
+        if inactive_days <= 0.0:
+            return rating
+
+        decay_factor = exp(-self._inactivity_decay_lambda * inactive_days)
+        return self.params.initial_elo + ((rating - self.params.initial_elo) * decay_factor)
 
     def _format_multiplier(self, match_format: str | None) -> float:
         if match_format == "BO5":
@@ -100,6 +128,14 @@ class TeamEloCalculator:
         if winner_pre_elo < loser_pre_elo:
             return self.params.unfavored_multiplier
         return self.params.even_multiplier
+
+    def _opponent_strength_multiplier(self, *, winner_expected_score: float) -> float:
+        if self.params.opponent_strength_weight == 1.0:
+            return 1.0
+
+        # winner_expected_score < 0.5 means the winner beat a stronger opponent.
+        strength_index = max(-1.0, min((0.5 - winner_expected_score) / 0.5, 1.0))
+        return self.params.opponent_strength_weight**strength_index
 
     def _round_domination_multiplier(self, map_result: TeamMapResult) -> float:
         if self.params.round_domination_multiplier == 1.0:
@@ -162,8 +198,8 @@ class TeamEloCalculator:
                 f"{map_result.team1_id}/{map_result.team2_id} for map_id={map_result.map_id}"
             )
 
-        team1_pre = self.get_rating(map_result.team1_id)
-        team2_pre = self.get_rating(map_result.team2_id)
+        team1_pre = self._apply_inactivity_decay(team_id=map_result.team1_id, event_time=map_result.event_time)
+        team2_pre = self._apply_inactivity_decay(team_id=map_result.team2_id, event_time=map_result.event_time)
 
         team1_expected = calculate_expected_score(
             rating=team1_pre,
@@ -177,6 +213,7 @@ class TeamEloCalculator:
 
         winner_pre_elo = team1_pre if team1_actual == 1.0 else team2_pre
         loser_pre_elo = team2_pre if team1_actual == 1.0 else team1_pre
+        winner_expected_score = team1_expected if team1_actual == 1.0 else team2_expected
         effective_k_multiplier = self._winner_outcome_multiplier(
             winner_pre_elo=winner_pre_elo,
             loser_pre_elo=loser_pre_elo,
@@ -185,6 +222,7 @@ class TeamEloCalculator:
             self.params.k_factor
             * self._format_multiplier(map_result.match_format)
             * effective_k_multiplier
+            * self._opponent_strength_multiplier(winner_expected_score=winner_expected_score)
             * (self.params.lan_multiplier if map_result.is_lan else 1.0)
             * self._round_domination_multiplier(map_result)
             * self._kd_ratio_domination_multiplier(map_result)
@@ -199,6 +237,8 @@ class TeamEloCalculator:
 
         self._ratings[map_result.team1_id] = team1_post
         self._ratings[map_result.team2_id] = team2_post
+        self._last_event_times[map_result.team1_id] = map_result.event_time
+        self._last_event_times[map_result.team2_id] = map_result.event_time
 
         team1_event = TeamEloEvent(
             team_id=map_result.team1_id,

@@ -25,10 +25,12 @@ scale_factor = 420.0
 even_multiplier = 1.05
 favored_multiplier = 0.95
 unfavored_multiplier = 1.2
+opponent_strength_weight = 1.15
 lan_multiplier = 1.15
 round_domination_multiplier = 1.1
 kd_ratio_domination_multiplier = 1.2
 recency_min_multiplier = 0.3
+inactivity_half_life_days = 45.0
 bo1_match_multiplier = 0.95
 bo3_match_multiplier = 1.1
 bo5_match_multiplier = 1.2
@@ -48,10 +50,12 @@ bo5_match_multiplier = 1.2
     assert system.parameters.even_multiplier == pytest.approx(1.05)
     assert system.parameters.favored_multiplier == pytest.approx(0.95)
     assert system.parameters.unfavored_multiplier == pytest.approx(1.2)
+    assert system.parameters.opponent_strength_weight == pytest.approx(1.15)
     assert system.parameters.lan_multiplier == pytest.approx(1.15)
     assert system.parameters.round_domination_multiplier == pytest.approx(1.1)
     assert system.parameters.kd_ratio_domination_multiplier == pytest.approx(1.2)
     assert system.parameters.recency_min_multiplier == pytest.approx(0.3)
+    assert system.parameters.inactivity_half_life_days == pytest.approx(45.0)
     assert system.parameters.bo1_match_multiplier == pytest.approx(0.95)
     assert system.parameters.bo3_match_multiplier == pytest.approx(1.1)
     assert system.parameters.bo5_match_multiplier == pytest.approx(1.2)
@@ -70,10 +74,12 @@ scale_factor = 400.0
 even_multiplier = 1.0
 favored_multiplier = 1.0
 unfavored_multiplier = 1.0
+opponent_strength_weight = 1.0
 lan_multiplier = 1.0
 round_domination_multiplier = 1.0
 kd_ratio_domination_multiplier = 1.0
 recency_min_multiplier = 1.0
+inactivity_half_life_days = 0.0
 bo1_match_multiplier = 1.0
 bo3_match_multiplier = 1.1
 bo5_match_multiplier = 1.2
@@ -105,10 +111,46 @@ lookback_days = 365
     assert system.parameters.even_multiplier == pytest.approx(1.0)
     assert system.parameters.favored_multiplier == pytest.approx(1.0)
     assert system.parameters.unfavored_multiplier == pytest.approx(1.0)
+    assert system.parameters.opponent_strength_weight == pytest.approx(1.0)
     assert system.parameters.lan_multiplier == pytest.approx(1.0)
     assert system.parameters.round_domination_multiplier == pytest.approx(1.0)
     assert system.parameters.kd_ratio_domination_multiplier == pytest.approx(1.0)
     assert system.parameters.recency_min_multiplier == pytest.approx(1.0)
+    assert system.parameters.inactivity_half_life_days == pytest.approx(0.0)
     assert system.parameters.bo1_match_multiplier == pytest.approx(1.0)
     assert system.parameters.bo3_match_multiplier == pytest.approx(1.0)
     assert system.parameters.bo5_match_multiplier == pytest.approx(1.0)
+
+
+def test_invalid_opponent_strength_weight_raises_validation_error(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid.toml"
+    config_path.write_text(
+        """
+[system]
+name = "system_invalid"
+lookback_days = 365
+
+[elo]
+opponent_strength_weight = 0.0
+""".strip()
+    )
+
+    with pytest.raises(ValueError, match=r"opponent_strength_weight must be > 0"):
+        load_elo_system_configs(tmp_path)
+
+
+def test_invalid_inactivity_half_life_days_raises_validation_error(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid_inactivity.toml"
+    config_path.write_text(
+        """
+[system]
+name = "system_invalid_inactivity"
+lookback_days = 365
+
+[elo]
+inactivity_half_life_days = -1.0
+""".strip()
+    )
+
+    with pytest.raises(ValueError, match=r"inactivity_half_life_days must be >= 0"):
+        load_elo_system_configs(tmp_path)

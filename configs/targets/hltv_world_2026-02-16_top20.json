@@ -1,0 +1,109 @@
+{
+  "source": "HLTV",
+  "ranking_name": "World ranking",
+  "snapshot_date": "2026-02-16",
+  "snapshot_time_utc": "2026-02-16T23:59:59",
+  "top_n": 20,
+  "teams": [
+    {
+      "rank": 1,
+      "name": "Vitality",
+      "points": 1000
+    },
+    {
+      "rank": 2,
+      "name": "FURIA",
+      "points": 749
+    },
+    {
+      "rank": 3,
+      "name": "Falcons",
+      "points": 507
+    },
+    {
+      "rank": 4,
+      "name": "MOUZ",
+      "points": 475
+    },
+    {
+      "rank": 5,
+      "name": "Spirit",
+      "points": 408
+    },
+    {
+      "rank": 6,
+      "name": "PARIVISION",
+      "points": 325
+    },
+    {
+      "rank": 7,
+      "name": "FaZe",
+      "points": 310
+    },
+    {
+      "rank": 8,
+      "name": "Natus Vincere",
+      "points": 281
+    },
+    {
+      "rank": 9,
+      "name": "The MongolZ",
+      "points": 248
+    },
+    {
+      "rank": 10,
+      "name": "G2",
+      "points": 246
+    },
+    {
+      "rank": 11,
+      "name": "Aurora",
+      "points": 230
+    },
+    {
+      "rank": 12,
+      "name": "Astralis",
+      "points": 167
+    },
+    {
+      "rank": 13,
+      "name": "3DMAX",
+      "points": 132
+    },
+    {
+      "rank": 14,
+      "name": "FUT",
+      "points": 122
+    },
+    {
+      "rank": 15,
+      "name": "Liquid",
+      "points": 113
+    },
+    {
+      "rank": 16,
+      "name": "B8",
+      "points": 102
+    },
+    {
+      "rank": 17,
+      "name": "paiN",
+      "points": 92
+    },
+    {
+      "rank": 18,
+      "name": "Passion UA",
+      "points": 85
+    },
+    {
+      "rank": 19,
+      "name": "GamerLegion",
+      "points": 83
+    },
+    {
+      "rank": 20,
+      "name": "NRG",
+      "points": 77
+    }
+  ]
+}
