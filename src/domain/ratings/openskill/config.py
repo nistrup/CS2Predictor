@@ -5,19 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import tomllib
 
+from domain.ratings.config_base import BaseSystemConfig, load_system_configs
 from domain.ratings.openskill.calculator import OpenSkillParameters
 
 
 @dataclass(frozen=True)
-class OpenSkillSystemConfig:
+class OpenSkillSystemConfig(BaseSystemConfig):
     """Configuration for one OpenSkill system rebuild."""
 
-    file_path: Path
-    name: str
-    description: str | None
-    lookback_days: int
     parameters: OpenSkillParameters
 
     def as_config_json(self) -> dict[str, Any]:
@@ -36,24 +32,11 @@ class OpenSkillSystemConfig:
 
 def load_openskill_system_configs(config_dir: Path) -> list[OpenSkillSystemConfig]:
     """Load and validate all OpenSkill TOML config files in a directory."""
-    if not config_dir.exists():
-        raise FileNotFoundError(f"Config directory not found: {config_dir}")
-    if not config_dir.is_dir():
-        raise NotADirectoryError(f"Config path is not a directory: {config_dir}")
-
-    config_files = sorted(config_dir.glob("*.toml"))
-    if not config_files:
-        raise ValueError(f"No .toml config files found in: {config_dir}")
-
-    systems: list[OpenSkillSystemConfig] = []
-    for file_path in config_files:
-        systems.append(_load_single_config(file_path))
-
-    names = [system.name for system in systems]
-    if len(names) != len(set(names)):
-        raise ValueError(f"Duplicate openskill system names found in {config_dir}: {names}")
-
-    return systems
+    return load_system_configs(
+        config_dir,
+        _parse_openskill_system_config,
+        duplicate_name_label="openskill",
+    )
 
 
 def _parse_bool(value: Any, *, file_path: Path, key: str) -> bool:
@@ -68,10 +51,7 @@ def _parse_bool(value: Any, *, file_path: Path, key: str) -> bool:
     raise ValueError(f"{file_path}: [openskill].{key} must be a boolean")
 
 
-def _load_single_config(file_path: Path) -> OpenSkillSystemConfig:
-    with file_path.open("rb") as file:
-        raw = tomllib.load(file)
-
+def _parse_openskill_system_config(raw: dict[str, Any], file_path: Path) -> OpenSkillSystemConfig:
     system_raw = raw.get("system", {})
     openskill_raw = raw.get("openskill", {})
 
@@ -102,9 +82,9 @@ def _load_single_config(file_path: Path) -> OpenSkillSystemConfig:
     _validate_parameters(file_path=file_path, parameters=parameters)
 
     return OpenSkillSystemConfig(
-        file_path=file_path,
         name=name,
         description=description,
+        file_path=file_path,
         lookback_days=lookback_days,
         parameters=parameters,
     )

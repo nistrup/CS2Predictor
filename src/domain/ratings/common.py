@@ -1,4 +1,4 @@
-"""Shared types for map-level rating systems."""
+"""Shared types for team-based rating systems."""
 
 from __future__ import annotations
 
@@ -17,9 +17,25 @@ class TeamMapResult:
     team1_id: int
     team2_id: int
     winner_id: int
+    map_name: str | None = None
     team1_score: int | None = None
     team2_score: int | None = None
     team1_kd_ratio: float | None = None
     team2_kd_ratio: float | None = None
+    is_lan: bool = False
+    match_format: str | None = None
+
+
+@dataclass(frozen=True)
+class TeamMatchResult:
+    """Canonical match outcome payload used by match-level rating calculators."""
+
+    match_id: int
+    event_time: datetime
+    team1_id: int
+    team2_id: int
+    winner_id: int
+    team1_maps_won: int
+    team2_maps_won: int
     is_lan: bool = False
     match_format: str | None = None

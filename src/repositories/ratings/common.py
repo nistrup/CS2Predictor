@@ -1,4 +1,4 @@
-"""Shared repository helpers for map-level rating systems."""
+"""Shared repository helpers for team-based rating systems."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from domain.ratings.common import TeamMapResult
+from domain.ratings.common import TeamMapResult, TeamMatchResult
 
 _metadata = MetaData()
 
@@ -51,6 +51,7 @@ _maps = Table(
     _metadata,
     Column("id", Integer),
     Column("match_id", Integer),
+    Column("map_name", String),
     Column("map_number", Integer),
     Column("winner_id", Integer),
     Column("score_team1", Integer),
@@ -94,6 +95,7 @@ def fetch_map_results(session: Session, lookback_days: int | None = 365) -> list
         select(
             _matches.c.id.label("match_id"),
             _maps.c.id.label("map_id"),
+            cast(_maps.c.map_name, String).label("map_name"),
             _maps.c.map_number.label("map_number"),
             event_time_expr,
             _matches.c.team1_id.label("team1_id"),
@@ -157,6 +159,7 @@ def fetch_map_results(session: Session, lookback_days: int | None = 365) -> list
         select(
             filtered_maps.c.match_id,
             filtered_maps.c.map_id,
+            filtered_maps.c.map_name,
             filtered_maps.c.map_number,
             filtered_maps.c.event_time,
             filtered_maps.c.team1_id,
@@ -179,6 +182,7 @@ def fetch_map_results(session: Session, lookback_days: int | None = 365) -> list
         .group_by(
             filtered_maps.c.match_id,
             filtered_maps.c.map_id,
+            filtered_maps.c.map_name,
             filtered_maps.c.map_number,
             filtered_maps.c.event_time,
             filtered_maps.c.team1_id,
@@ -209,6 +213,7 @@ def fetch_map_results(session: Session, lookback_days: int | None = 365) -> list
             TeamMapResult(
                 match_id=row["match_id"],
                 map_id=row["map_id"],
+                map_name=row["map_name"],
                 map_number=row["map_number"],
                 event_time=event_time,
                 team1_id=row["team1_id"],
@@ -228,3 +233,97 @@ def fetch_map_results(session: Session, lookback_days: int | None = 365) -> list
         )
 
     return map_results
+
+
+def fetch_match_results(session: Session, lookback_days: int | None = 365) -> list[TeamMatchResult]:
+    """Fetch decisive match outcomes in deterministic chronological order."""
+    cutoff_time = None
+    if lookback_days is not None and lookback_days > 0:
+        cutoff_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=lookback_days)
+
+    event_time_expr = func.coalesce(
+        _matches.c.date,
+        _matches.c.updated_at,
+        _matches.c.created_at,
+    ).label("event_time")
+
+    conditions = [
+        cast(_matches.c.status, String) == "FINISHED",
+        _maps.c.winner_id.is_not(None),
+        or_(
+            _maps.c.winner_id == _matches.c.team1_id,
+            _maps.c.winner_id == _matches.c.team2_id,
+        ),
+    ]
+    if cutoff_time is not None:
+        conditions.append(event_time_expr >= cutoff_time)
+
+    team1_maps_won = func.sum(
+        case(
+            (_maps.c.winner_id == _matches.c.team1_id, 1),
+            else_=0,
+        )
+    ).label("team1_maps_won")
+    team2_maps_won = func.sum(
+        case(
+            (_maps.c.winner_id == _matches.c.team2_id, 1),
+            else_=0,
+        )
+    ).label("team2_maps_won")
+
+    statement = (
+        select(
+            _matches.c.id.label("match_id"),
+            event_time_expr,
+            _matches.c.team1_id.label("team1_id"),
+            _matches.c.team2_id.label("team2_id"),
+            team1_maps_won,
+            team2_maps_won,
+            func.coalesce(_events.c.lan, False).label("is_lan"),
+            cast(_matches.c.format, String).label("match_format"),
+        )
+        .select_from(_matches.join(_maps, _maps.c.match_id == _matches.c.id).outerjoin(
+            _events, _matches.c.event_id == _events.c.id
+        ))
+        .where(*conditions)
+        .group_by(
+            _matches.c.id,
+            event_time_expr,
+            _matches.c.team1_id,
+            _matches.c.team2_id,
+            _events.c.lan,
+            _matches.c.format,
+        )
+        .having(team1_maps_won != team2_maps_won)
+        .order_by(event_time_expr, _matches.c.id)
+    )
+
+    rows = session.execute(statement).mappings().all()
+
+    match_results: list[TeamMatchResult] = []
+    for row in rows:
+        event_time = row["event_time"]
+        if not isinstance(event_time, datetime):
+            raise ValueError(f"match_id={row['match_id']} has invalid event_time={event_time!r}")
+
+        team1_id = int(row["team1_id"])
+        team2_id = int(row["team2_id"])
+        team1_wins = int(row["team1_maps_won"])
+        team2_wins = int(row["team2_maps_won"])
+        winner_id = team1_id if team1_wins > team2_wins else team2_id
+
+        match_results.append(
+            TeamMatchResult(
+                match_id=int(row["match_id"]),
+                event_time=event_time,
+                team1_id=team1_id,
+                team2_id=team2_id,
+                winner_id=winner_id,
+                team1_maps_won=team1_wins,
+                team2_maps_won=team2_wins,
+                is_lan=bool(row["is_lan"]),
+                match_format=row["match_format"],
+            )
+        )
+
+    return match_results

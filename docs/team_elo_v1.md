@@ -104,11 +104,11 @@ Important constraints:
 - `actual_score` restricted to `0.0` or `1.0`
 - `expected_score` restricted to `[0.0, 1.0]`
 
-## Rebuild Script
+## Rebuild CLI
 
-Script path:
+CLI path:
 
-- `scripts/rebuild_team_elo.py`
+- `scripts/rebuild_ratings.py`
 
 Script framework:
 
@@ -116,7 +116,7 @@ Script framework:
 - `SQLAlchemy` ORM/Core
 - `psycopg` PostgreSQL driver
 
-The script:
+The CLI command:
 
 1. Creates `team_elo` if it does not exist.
 2. Loads all `*.toml` files from `configs/ratings/elo/`.
@@ -138,13 +138,15 @@ Use the project venv:
 
 ```bash
 venv/bin/pip install -r requirements.txt
-venv/bin/python scripts/rebuild_team_elo.py
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team
 ```
 
 Optional arguments:
 
 ```bash
-venv/bin/python scripts/rebuild_team_elo.py \
+venv/bin/python scripts/rebuild_ratings.py rebuild elo \
+  --granularity map \
+  --subject team \
   --config-dir configs/ratings/elo \
   --config-name default.toml \
   --batch-size 5000
@@ -153,7 +155,7 @@ venv/bin/python scripts/rebuild_team_elo.py \
 Dry run:
 
 ```bash
-venv/bin/python scripts/rebuild_team_elo.py --dry-run
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team --dry-run
 ```
 
 Show top teams with inactivity filter (example: require at least 1 map in last 90 days):

@@ -78,6 +78,10 @@ class TeamEloCalculator:
     def tracked_team_count(self) -> int:
         return len(self._ratings)
 
+    def tracked_entity_count(self) -> int:
+        """Subject-agnostic alias for protocol compatibility."""
+        return self.tracked_team_count()
+
     def ratings(self) -> dict[int, float]:
         """Return a snapshot of current team ratings."""
         return dict(self._ratings)

@@ -113,19 +113,19 @@ Install dependencies and rebuild all configured systems:
 
 ```bash
 venv/bin/pip install -r requirements.txt
-venv/bin/python scripts/rebuild_team_elo.py
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team
 ```
 
 Run a single config:
 
 ```bash
-venv/bin/python scripts/rebuild_team_elo.py --config-name default.toml
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team --config-name default.toml
 ```
 
 Dry run (compute without writing to `team_elo`):
 
 ```bash
-venv/bin/python scripts/rebuild_team_elo.py --dry-run
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team --dry-run
 ```
 
 Show top teams for one Elo system, filtering inactive teams:
@@ -140,10 +140,27 @@ venv/bin/python scripts/show_team_elo_top.py \
 
 Tune by creating a new config file under `configs/ratings/elo/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`. Automated hyperparameter tuning is intentionally deferred for now.
 
-Run `default.toml` for all three systems in one command:
+Run `default.toml` for all default rating systems in one command:
 
 ```bash
 venv/bin/python scripts/rebuild_all_default_ratings.py --config-name default.toml
+```
+
+Additional Elo variants:
+
+- Match-level Elo configs: `configs/ratings/elo_match/*.toml`
+- Map-specific Elo configs: `configs/ratings/elo_map/*.toml`
+
+Rebuild match-level Elo:
+
+```bash
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity match --subject team --config-name default.toml
+```
+
+Rebuild map-specific Elo:
+
+```bash
+venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map_specific --subject team --config-name default.toml
 ```
 
 ## Team Glicko-2 v1
@@ -161,13 +178,13 @@ Implementation docs:
 Quick start:
 
 ```bash
-venv/bin/python scripts/rebuild_team_glicko2.py
+venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --subject team
 ```
 
 Run a single config:
 
 ```bash
-venv/bin/python scripts/rebuild_team_glicko2.py --config-name default.toml
+venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --subject team --config-name default.toml
 ```
 
 Show top teams for one Glicko-2 system, filtering inactive teams:
@@ -197,13 +214,13 @@ Implementation docs:
 Quick start:
 
 ```bash
-venv/bin/python scripts/rebuild_team_openskill.py
+venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map --subject team
 ```
 
 Run a single config:
 
 ```bash
-venv/bin/python scripts/rebuild_team_openskill.py --config-name default.toml
+venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map --subject team --config-name default.toml
 ```
 
 Show top teams for one OpenSkill system, filtering inactive teams:

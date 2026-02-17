@@ -102,7 +102,7 @@ Important constraints:
 
 ## Rebuild Script
 
-- `scripts/rebuild_team_openskill.py`
+- `scripts/rebuild_ratings.py`
 
 The script:
 
@@ -117,19 +117,19 @@ The script:
 
 ```bash
 venv/bin/pip install -r requirements.txt
-venv/bin/python scripts/rebuild_team_openskill.py
+venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map --subject team
 ```
 
 Single config:
 
 ```bash
-venv/bin/python scripts/rebuild_team_openskill.py --config-name default.toml
+venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map --subject team --config-name default.toml
 ```
 
 Dry run:
 
 ```bash
-venv/bin/python scripts/rebuild_team_openskill.py --dry-run
+venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map --subject team --dry-run
 ```
 
 Show top teams:

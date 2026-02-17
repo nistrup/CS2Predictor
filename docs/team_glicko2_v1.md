@@ -114,7 +114,7 @@ Important constraints:
 
 ## Rebuild Script
 
-- `scripts/rebuild_team_glicko2.py`
+- `scripts/rebuild_ratings.py`
 
 The script:
 
@@ -129,19 +129,19 @@ The script:
 
 ```bash
 venv/bin/pip install -r requirements.txt
-venv/bin/python scripts/rebuild_team_glicko2.py
+venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --subject team
 ```
 
 Single config:
 
 ```bash
-venv/bin/python scripts/rebuild_team_glicko2.py --config-name default.toml
+venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --subject team --config-name default.toml
 ```
 
 Dry run:
 
 ```bash
-venv/bin/python scripts/rebuild_team_glicko2.py --dry-run
+venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --subject team --dry-run
 ```
 
 Show top teams:

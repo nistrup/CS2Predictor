@@ -5,19 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import tomllib
 
+from domain.ratings.config_base import BaseSystemConfig, load_system_configs
 from domain.ratings.elo.calculator import EloParameters
 
 
 @dataclass(frozen=True)
-class EloSystemConfig:
+class EloSystemConfig(BaseSystemConfig):
     """Configuration for one Elo system rebuild."""
 
-    file_path: Path
-    name: str
-    description: str | None
-    lookback_days: int
     parameters: EloParameters
 
     def as_config_json(self) -> dict[str, Any]:
@@ -43,30 +39,14 @@ class EloSystemConfig:
 
 def load_elo_system_configs(config_dir: Path) -> list[EloSystemConfig]:
     """Load and validate all Elo system TOML config files in a directory."""
-    if not config_dir.exists():
-        raise FileNotFoundError(f"Config directory not found: {config_dir}")
-    if not config_dir.is_dir():
-        raise NotADirectoryError(f"Config path is not a directory: {config_dir}")
-
-    config_files = sorted(config_dir.glob("*.toml"))
-    if not config_files:
-        raise ValueError(f"No .toml config files found in: {config_dir}")
-
-    systems: list[EloSystemConfig] = []
-    for file_path in config_files:
-        systems.append(_load_single_config(file_path))
-
-    names = [system.name for system in systems]
-    if len(names) != len(set(names)):
-        raise ValueError(f"Duplicate elo system names found in {config_dir}: {names}")
-
-    return systems
+    return load_system_configs(
+        config_dir,
+        _parse_elo_system_config,
+        duplicate_name_label="elo",
+    )
 
 
-def _load_single_config(file_path: Path) -> EloSystemConfig:
-    with file_path.open("rb") as file:
-        raw = tomllib.load(file)
-
+def _parse_elo_system_config(raw: dict[str, Any], file_path: Path) -> EloSystemConfig:
     system_raw = raw.get("system", {})
     elo_raw = raw.get("elo", {})
 
@@ -103,9 +83,9 @@ def _load_single_config(file_path: Path) -> EloSystemConfig:
     _validate_parameters(file_path=file_path, parameters=parameters)
 
     return EloSystemConfig(
-        file_path=file_path,
         name=name,
         description=description,
+        file_path=file_path,
         lookback_days=lookback_days,
         parameters=parameters,
     )

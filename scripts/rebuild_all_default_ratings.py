@@ -1,59 +1,29 @@
 #!/usr/bin/env python3
-"""Run default config rebuilds for Elo, Glicko-2, and OpenSkill."""
+"""Run default config rebuilds for all registered rating systems."""
 
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Annotated, Callable
+from typing import Annotated
 
 import typer
+
+from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from rebuild_team_elo import (
-    DEFAULT_CONFIG_DIR as DEFAULT_ELO_CONFIG_DIR,
-    DEFAULT_DB_URL,
-    rebuild_team_elo,
-)
-from rebuild_team_glicko2 import (
-    DEFAULT_CONFIG_DIR as DEFAULT_GLICKO2_CONFIG_DIR,
-    rebuild_team_glicko2,
-)
-from rebuild_team_openskill import (
-    DEFAULT_CONFIG_DIR as DEFAULT_OPENSKILL_CONFIG_DIR,
-    rebuild_team_openskill,
-)
+from domain.ratings.protocol import Granularity, Subject
+from domain.ratings.registry import get_all
+from rebuild_ratings import DEFAULT_DB_URL, rebuild_registered_system
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Run default config rebuilds for all rating systems.",
+    help="Run default config rebuilds for all registered rating systems.",
 )
-
-
-def _run_system(
-    *,
-    label: str,
-    rebuild_fn: Callable[..., None],
-    db_url: str,
-    config_dir: Path,
-    config_name: str,
-    batch_size: int,
-    dry_run: bool,
-) -> None:
-    typer.echo(f"==> starting {label} (config={config_name})")
-    rebuild_fn(
-        db_url=db_url,
-        config_dir=config_dir,
-        config_name=config_name,
-        batch_size=batch_size,
-        dry_run=dry_run,
-    )
-    typer.echo(f"<== completed {label}")
 
 
 @app.command()
@@ -72,27 +42,20 @@ def rebuild_all_default_ratings(
             help="Config filename to run in each system config directory.",
         ),
     ] = "default.toml",
-    elo_config_dir: Annotated[
-        Path,
+    include_match_elo: Annotated[
+        bool,
         typer.Option(
-            "--elo-config-dir",
-            help="Directory containing Elo system config files.",
+            "--include-match-elo/--skip-match-elo",
+            help="Include match-level Elo rebuild.",
         ),
-    ] = DEFAULT_ELO_CONFIG_DIR,
-    glicko2_config_dir: Annotated[
-        Path,
+    ] = True,
+    include_map_elo: Annotated[
+        bool,
         typer.Option(
-            "--glicko2-config-dir",
-            help="Directory containing Glicko-2 system config files.",
+            "--include-map-elo/--skip-map-elo",
+            help="Include map-specific Elo rebuild.",
         ),
-    ] = DEFAULT_GLICKO2_CONFIG_DIR,
-    openskill_config_dir: Annotated[
-        Path,
-        typer.Option(
-            "--openskill-config-dir",
-            help="Directory containing OpenSkill system config files.",
-        ),
-    ] = DEFAULT_OPENSKILL_CONFIG_DIR,
+    ] = True,
     batch_size: Annotated[
         int,
         typer.Option("--batch-size", help="Batch size for inserting rating events."),
@@ -112,27 +75,48 @@ def rebuild_all_default_ratings(
         ),
     ] = False,
 ) -> None:
-    """Recompute all rating systems for one config filename (default: default.toml)."""
+    """Recompute all registered team-level rating systems for one config filename."""
     if batch_size <= 0:
         raise typer.BadParameter("--batch-size must be greater than 0")
 
     failures: list[str] = []
 
-    for label, rebuild_fn, config_dir in [
-        ("Elo", rebuild_team_elo, elo_config_dir),
-        ("Glicko-2", rebuild_team_glicko2, glicko2_config_dir),
-        ("OpenSkill", rebuild_team_openskill, openskill_config_dir),
-    ]:
+    for descriptor in get_all():
+        if descriptor.subject is not Subject.TEAM:
+            continue
+
+        if (
+            descriptor.algorithm == "elo"
+            and descriptor.granularity is Granularity.MATCH
+            and not include_match_elo
+        ):
+            continue
+
+        if (
+            descriptor.algorithm == "elo"
+            and descriptor.granularity is Granularity.MAP_SPECIFIC
+            and not include_map_elo
+        ):
+            continue
+
+        label = (
+            f"{descriptor.algorithm}/"
+            f"{descriptor.granularity.value}/"
+            f"{descriptor.subject.value}"
+        )
+        typer.echo(f"==> starting {label} (config={config_name})")
         try:
-            _run_system(
-                label=label,
-                rebuild_fn=rebuild_fn,
+            rebuild_registered_system(
+                algorithm=descriptor.algorithm,
+                granularity=descriptor.granularity,
+                subject=descriptor.subject,
                 db_url=db_url,
-                config_dir=config_dir,
+                config_dir=descriptor.config_dir,
                 config_name=config_name,
                 batch_size=batch_size,
                 dry_run=dry_run,
             )
+            typer.echo(f"<== completed {label}")
         except Exception as exc:
             message = f"{label} failed: {exc}"
             failures.append(message)
