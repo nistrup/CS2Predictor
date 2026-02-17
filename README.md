@@ -42,27 +42,87 @@ Primary target: **winner of a given matchup** (team A vs team B), for both pre-g
 
 ## Team Elo v1
 
-Team Elo v1 is implemented as a map-level, team-only Elo calculation with system versioning:
+Team Elo v1 is a map-level, team-only Elo system with per-system versioning and many tunable parameters.
 
-- `elo_systems` (stores config per Elo system)
-- `team_elo` (stores events keyed by `elo_system_id`)
-- file-based system configs in `configs/elo_systems/*.toml`
+- `elo_systems`: stores each system definition and config snapshot.
+- `team_elo`: stores one row per team per map, keyed by `elo_system_id`.
+- `configs/elo_systems/*.toml`: file-based Elo system definitions.
 
 Implementation docs:
 
 - `docs/team_elo_v1.md`
 
-Quick start:
+### Config shape
+
+Each Elo system config has a `[system]` section and an `[elo]` section:
+
+```toml
+[system]
+name = "team_elo_default"
+description = "Pure baseline team Elo"
+lookback_days = 365
+
+[elo]
+initial_elo = 1500.0
+k_factor = 20.0
+scale_factor = 400.0
+even_multiplier = 1.0
+favored_multiplier = 1.0
+unfavored_multiplier = 1.0
+opponent_strength_weight = 1.0
+lan_multiplier = 1.0
+round_domination_multiplier = 1.0
+kd_ratio_domination_multiplier = 1.0
+recency_min_multiplier = 1.0
+inactivity_half_life_days = 0.0
+bo1_match_multiplier = 1.0
+bo3_match_multiplier = 1.0
+bo5_match_multiplier = 1.0
+```
+
+### Tunable parameters
+
+- `lookback_days`: time window for input maps (`0` means all-time).
+- `initial_elo`: starting rating and inactivity baseline.
+- `k_factor`: base Elo update size before multipliers.
+- `scale_factor`: expected-score curve width (higher means slower expected-score change per Elo gap).
+- `even_multiplier`: applies when winner and loser had equal pre-map Elo.
+- `favored_multiplier`: applies when higher-rated team wins.
+- `unfavored_multiplier`: applies when lower-rated team wins.
+- `opponent_strength_weight`: continuous upset/favorite adjustment (`1.0` disables).
+- `lan_multiplier`: extra weight on LAN matches (`is_lan=true`).
+- `round_domination_multiplier`: scales by winner round-share dominance (`1.0` disables).
+- `kd_ratio_domination_multiplier`: scales by winner-loser K/D ratio gap (`1.0` disables).
+- `recency_min_multiplier`: floor for linear recency weighting inside `lookback_days` (`1.0` disables).
+- `inactivity_half_life_days`: decays ratings toward `initial_elo` between maps (`0.0` disables).
+- `bo1_match_multiplier`, `bo3_match_multiplier`, `bo5_match_multiplier`: format-specific scaling.
+
+Validation rules:
+
+- All multipliers and core Elo constants must be `> 0`, except:
+- `lookback_days >= 0`
+- `inactivity_half_life_days >= 0`
+- `recency_min_multiplier` must be in `[0, 1]`
+
+### Rebuild and inspect
+
+Install dependencies and rebuild all configured systems:
 
 ```bash
 venv/bin/pip install -r requirements.txt
 venv/bin/python scripts/rebuild_team_elo.py
 ```
 
-Run a single config file:
+Run a single config:
 
 ```bash
 venv/bin/python scripts/rebuild_team_elo.py --config-name default.toml
+```
+
+Dry run (compute without writing to `team_elo`):
+
+```bash
+venv/bin/python scripts/rebuild_team_elo.py --dry-run
 ```
 
 Show top teams for one Elo system, filtering inactive teams:
@@ -75,28 +135,7 @@ venv/bin/python scripts/show_team_elo_top.py \
   --min-recent-maps 1
 ```
 
-Tune Elo parameters against a static HLTV target snapshot using Optuna:
-
-```bash
-venv/bin/python scripts/tune_team_elo_optuna.py \
-  --target-file configs/targets/hltv_world_2026-02-16_top20.json \
-  --trials 1000 \
-  --active-window-days 90 \
-  --min-recent-maps 1 \
-  --output-config configs/elo_systems/hltv_optuna_best.toml \
-  --output-system-name team_elo_hltv_optuna_best
-```
-
-Apply the tuned config and inspect the resulting top 20:
-
-```bash
-venv/bin/python scripts/rebuild_team_elo.py --config-name hltv_optuna_best.toml
-venv/bin/python scripts/show_team_elo_top.py \
-  --system-name team_elo_hltv_optuna_best \
-  --top-n 20 \
-  --active-window-days 90 \
-  --min-recent-maps 1
-```
+Tune by creating a new config file under `configs/elo_systems/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`. Automated hyperparameter tuning is intentionally deferred for now.
 
 Run tests:
 
