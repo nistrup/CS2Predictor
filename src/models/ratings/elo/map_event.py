@@ -2,26 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    DateTime,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from models.ratings.mixins import TeamMapSpecificEventMixin
 
 
-class TeamMapElo(Base):
+class TeamMapElo(TeamMapSpecificEventMixin, Base):
     """Historical map-specific team Elo events (one row per team per map)."""
 
     __tablename__ = "team_map_elo"
@@ -44,16 +32,6 @@ class TeamMapElo(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     elo_system_id: Mapped[int] = mapped_column(ForeignKey("elo_systems.id"), nullable=False)
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
-    opponent_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
-    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), nullable=False)
-    map_id: Mapped[int] = mapped_column(ForeignKey("maps.id"), nullable=False)
-    map_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    map_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
-    won: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    actual_score: Mapped[float] = mapped_column(Float, nullable=False)
-    expected_score: Mapped[float] = mapped_column(Float, nullable=False)
     pre_global_elo: Mapped[float] = mapped_column(Float, nullable=False)
     pre_map_elo: Mapped[float] = mapped_column(Float, nullable=False)
     pre_effective_elo: Mapped[float] = mapped_column(Float, nullable=False)
@@ -61,14 +39,6 @@ class TeamMapElo(Base):
     post_global_elo: Mapped[float] = mapped_column(Float, nullable=False)
     post_map_elo: Mapped[float] = mapped_column(Float, nullable=False)
     post_effective_elo: Mapped[float] = mapped_column(Float, nullable=False)
-    map_games_played_pre: Mapped[int] = mapped_column(Integer, nullable=False)
-    map_blend_weight: Mapped[float] = mapped_column(Float, nullable=False)
     k_factor: Mapped[float] = mapped_column(Float, nullable=False)
     scale_factor: Mapped[float] = mapped_column(Float, nullable=False)
     initial_elo: Mapped[float] = mapped_column(Float, nullable=False)
-    map_prior_games: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        nullable=False,
-        server_default=func.now(),
-    )

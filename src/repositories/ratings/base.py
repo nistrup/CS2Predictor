@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
@@ -17,8 +18,81 @@ EventModelT = TypeVar("EventModelT")
 DomainEventT = TypeVar("DomainEventT")
 
 
+def _event_to_row_from_dataclass(
+    domain_event_class: type,
+    system_id_column: str,
+) -> Callable[[Any, int], dict[str, Any]]:
+    """Build event_to_row that maps dataclass fields to dict and injects system_id."""
+    fields = [f.name for f in dataclasses.fields(domain_event_class)]
+
+    def event_to_row(event: Any, system_id: int) -> dict[str, Any]:
+        row = {system_id_column: system_id}
+        for name in fields:
+            row[name] = getattr(event, name)
+        return row
+
+    return event_to_row
+
+
+def _event_to_copy_row_from_dataclass(
+    domain_event_class: type,
+) -> Callable[[Any, int], tuple[Any, ...]]:
+    """Build event_to_copy_row that returns (system_id, *field_values) in field order."""
+    fields = [f.name for f in dataclasses.fields(domain_event_class)]
+
+    def event_to_copy_row(event: Any, system_id: int) -> tuple[Any, ...]:
+        return (system_id,) + tuple(getattr(event, name) for name in fields)
+
+    return event_to_copy_row
+
+
+def _copy_sql_from_dataclass(
+    event_model: type,
+    system_id_column: str,
+    domain_event_class: type,
+) -> str:
+    """Build COPY ... FROM STDIN SQL with columns: system_id, then dataclass fields in order."""
+    table_name = getattr(event_model, "__tablename__", "events")
+    fields = [f.name for f in dataclasses.fields(domain_event_class)]
+    columns = [system_id_column] + fields
+    return f"COPY {table_name} ({', '.join(columns)}) FROM STDIN"
+
+
 class BaseRatingRepository(Generic[SystemModelT, EventModelT, DomainEventT]):
     """Reusable persistence operations shared across rating systems."""
+
+    @classmethod
+    def from_models(
+        cls,
+        *,
+        system_model: type[SystemModelT],
+        event_model: type[EventModelT],
+        domain_event_class: type[DomainEventT],
+        system_id_column: str,
+        entity_id_column: str,
+        reflect_tables: Sequence[str] = (),
+        schema_migration: Callable[[Connection], None] | None = None,
+        enable_copy: bool = True,
+    ) -> BaseRatingRepository[SystemModelT, EventModelT, DomainEventT]:
+        """Create a repository by auto-deriving event_to_row and COPY SQL from a domain event dataclass."""
+        event_to_row = _event_to_row_from_dataclass(domain_event_class, system_id_column)
+        event_to_copy_row = _event_to_copy_row_from_dataclass(domain_event_class) if enable_copy else None
+        copy_sql = (
+            _copy_sql_from_dataclass(event_model, system_id_column, domain_event_class)
+            if enable_copy
+            else None
+        )
+        return cls(
+            system_model=system_model,
+            event_model=event_model,
+            system_id_column=system_id_column,
+            entity_id_column=entity_id_column,
+            event_to_row=event_to_row,
+            copy_sql=copy_sql,
+            event_to_copy_row=event_to_copy_row,
+            reflect_tables=reflect_tables,
+            schema_migration=schema_migration,
+        )
 
     def __init__(
         self,

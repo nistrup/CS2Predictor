@@ -2,25 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    DateTime,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from models.ratings.mixins import TeamMapEventMixin
 
 
-class TeamOpenSkill(Base):
+class TeamOpenSkill(TeamMapEventMixin, Base):
     """Historical team OpenSkill events (one row per team per map)."""
 
     __tablename__ = "team_openskill"
@@ -47,15 +36,6 @@ class TeamOpenSkill(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     openskill_system_id: Mapped[int] = mapped_column(ForeignKey("openskill_systems.id"), nullable=False)
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
-    opponent_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
-    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), nullable=False)
-    map_id: Mapped[int] = mapped_column(ForeignKey("maps.id"), nullable=False)
-    map_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
-    won: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    actual_score: Mapped[float] = mapped_column(Float, nullable=False)
-    expected_score: Mapped[float] = mapped_column(Float, nullable=False)
     pre_mu: Mapped[float] = mapped_column(Float, nullable=False)
     pre_sigma: Mapped[float] = mapped_column(Float, nullable=False)
     pre_ordinal: Mapped[float] = mapped_column(Float, nullable=False)
@@ -73,8 +53,3 @@ class TeamOpenSkill(Base):
     ordinal_z: Mapped[float] = mapped_column(Float, nullable=False)
     initial_mu: Mapped[float] = mapped_column(Float, nullable=False)
     initial_sigma: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        nullable=False,
-        server_default=func.now(),
-    )

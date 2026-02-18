@@ -1,0 +1,17 @@
+[system]
+name = "player_map_glicko2_default"
+description = "Baseline map-specific player Glicko-2"
+lookback_days = 0
+
+[glicko2]
+initial_rating = 1500.0
+initial_rd = 350.0
+initial_volatility = 0.06
+tau = 0.5
+rating_period_days = 1.0
+min_rd = 30.0
+max_rd = 350.0
+epsilon = 0.000001
+
+[map_specific]
+map_prior_games = 20.0

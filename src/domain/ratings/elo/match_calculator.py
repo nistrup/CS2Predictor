@@ -7,6 +7,7 @@ from datetime import datetime
 
 from domain.ratings.common import TeamMatchResult
 from domain.ratings.elo.calculator import EloParameters, TeamEloCalculator, calculate_expected_score
+from domain.ratings.match_adapter import MatchAdapterMixin
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class TeamMatchEloEvent:
     opponent_maps_won: int
 
 
-class TeamMatchEloCalculator(TeamEloCalculator):
+class TeamMatchEloCalculator(MatchAdapterMixin, TeamEloCalculator):
     """Stateful match-by-match team Elo calculator."""
 
     def __init__(
@@ -45,15 +46,7 @@ class TeamMatchEloCalculator(TeamEloCalculator):
         )
 
     def process_match(self, match_result: TeamMatchResult) -> tuple[TeamMatchEloEvent, TeamMatchEloEvent]:
-        if match_result.team1_id == match_result.team2_id:
-            raise ValueError(
-                f"match_id={match_result.match_id} has identical teams ({match_result.team1_id})"
-            )
-        if match_result.winner_id not in (match_result.team1_id, match_result.team2_id):
-            raise ValueError(
-                f"winner_id={match_result.winner_id} does not belong to match teams "
-                f"{match_result.team1_id}/{match_result.team2_id} for match_id={match_result.match_id}"
-            )
+        self._validate_team_match(match_result)
 
         team1_pre = self._apply_inactivity_decay(
             team_id=match_result.team1_id,
@@ -71,8 +64,7 @@ class TeamMatchEloCalculator(TeamEloCalculator):
         )
         team2_expected = 1.0 - team1_expected
 
-        team1_actual = 1.0 if match_result.winner_id == match_result.team1_id else 0.0
-        team2_actual = 1.0 - team1_actual
+        team1_actual, team2_actual, team1_maps_won, team2_maps_won = self._match_outcome(match_result)
 
         winner_pre_elo = team1_pre if team1_actual == 1.0 else team2_pre
         loser_pre_elo = team2_pre if team1_actual == 1.0 else team1_pre
@@ -99,9 +91,6 @@ class TeamMatchEloCalculator(TeamEloCalculator):
         self._ratings[match_result.team2_id] = team2_post
         self._last_event_times[match_result.team1_id] = match_result.event_time
         self._last_event_times[match_result.team2_id] = match_result.event_time
-
-        team1_maps_won = match_result.team1_maps_won
-        team2_maps_won = match_result.team2_maps_won
 
         team1_event = TeamMatchEloEvent(
             team_id=match_result.team1_id,

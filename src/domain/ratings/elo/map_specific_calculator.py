@@ -7,6 +7,7 @@ from datetime import datetime
 
 from domain.ratings.common import TeamMapResult
 from domain.ratings.elo.calculator import EloParameters, TeamEloCalculator, calculate_expected_score
+from domain.ratings.map_specific_mixin import MapSpecificMixin
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class TeamMapEloEvent:
     map_prior_games: float
 
 
-class TeamMapSpecificEloCalculator(TeamEloCalculator):
+class TeamMapSpecificEloCalculator(MapSpecificMixin, TeamEloCalculator):
     """Stateful map-by-map calculator blending map-specific and global Elo."""
 
     def __init__(
@@ -60,28 +61,12 @@ class TeamMapSpecificEloCalculator(TeamEloCalculator):
         )
         self.params = params
         self._map_ratings: dict[tuple[int, str], float] = {}
-        self._map_games_played: dict[tuple[int, str], int] = {}
-        self._map_last_event_times: dict[tuple[int, str], datetime] = {}
-
-    def _normalize_map_name(self, map_name: str | None) -> str:
-        normalized = (map_name or "").strip().upper()
-        return normalized or "UNKNOWN"
-
-    def _map_key(self, *, team_id: int, map_name: str) -> tuple[int, str]:
-        return (team_id, map_name)
+        self._map_games_played = {}
+        self._map_last_event_times = {}
 
     def _get_map_rating(self, *, team_id: int, map_name: str) -> float:
         key = self._map_key(team_id=team_id, map_name=map_name)
         return self._map_ratings.get(key, self.params.initial_elo)
-
-    def _get_map_games_played(self, *, team_id: int, map_name: str) -> int:
-        key = self._map_key(team_id=team_id, map_name=map_name)
-        return self._map_games_played.get(key, 0)
-
-    def _map_blend_weight(self, *, map_games_played: int) -> float:
-        if self.params.map_prior_games <= 0.0:
-            return 1.0
-        return map_games_played / (map_games_played + self.params.map_prior_games)
 
     def _apply_map_inactivity_decay(self, *, team_id: int, map_name: str, event_time: datetime) -> float:
         rating = self._get_map_rating(team_id=team_id, map_name=map_name)
@@ -191,10 +176,14 @@ class TeamMapSpecificEloCalculator(TeamEloCalculator):
         key2 = self._map_key(team_id=map_result.team2_id, map_name=map_name)
         self._map_ratings[key1] = team1_map_post
         self._map_ratings[key2] = team2_map_post
-        self._map_games_played[key1] = team1_map_games_pre + 1
-        self._map_games_played[key2] = team2_map_games_pre + 1
-        self._map_last_event_times[key1] = map_result.event_time
-        self._map_last_event_times[key2] = map_result.event_time
+        self._record_map_games_played(
+            team1_id=map_result.team1_id,
+            team2_id=map_result.team2_id,
+            map_name=map_name,
+            team1_games_pre=team1_map_games_pre,
+            team2_games_pre=team2_map_games_pre,
+            event_time=map_result.event_time,
+        )
 
         team1_effective_post = (
             (team1_blend_weight * team1_map_post)

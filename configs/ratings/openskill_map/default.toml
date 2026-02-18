@@ -1,0 +1,17 @@
+[system]
+name = "team_map_openskill_default"
+description = "Baseline map-specific OpenSkill (Plackett-Luce)"
+lookback_days = 0
+
+[openskill]
+initial_mu = 25.0
+initial_sigma = 8.333333333333334
+beta = 4.166666666666667
+kappa = 0.0001
+tau = 0.08333333333333333
+limit_sigma = false
+balance = false
+ordinal_z = 3.0
+
+[map_specific]
+map_prior_games = 20.0
