@@ -161,7 +161,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subje
 Show top teams with inactivity filter (example: require at least 1 map in last 90 days):
 
 ```bash
-venv/bin/python scripts/show_team_elo_top.py \
+venv/bin/python scripts/show_team_top.py elo \
   --system-name team_elo_default \
   --top-n 20 \
   --active-window-days 90 \

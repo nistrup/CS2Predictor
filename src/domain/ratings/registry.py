@@ -13,19 +13,13 @@ from sqlalchemy.orm import Session
 from domain.ratings.config_base import BaseSystemConfig
 from domain.ratings.elo.calculator import TeamEloCalculator
 from domain.ratings.elo.config import load_elo_system_configs
-from domain.ratings.elo.map_specific_calculator import TeamMapSpecificEloCalculator
-from domain.ratings.elo.map_specific_config import load_map_specific_elo_system_configs
-from domain.ratings.elo.match_calculator import TeamMatchEloCalculator
-from domain.ratings.elo.match_config import load_match_elo_system_configs
 from domain.ratings.glicko2.calculator import TeamGlicko2Calculator
 from domain.ratings.glicko2.config import load_glicko2_system_configs
 from domain.ratings.openskill.calculator import TeamOpenSkillCalculator
 from domain.ratings.openskill.config import load_openskill_system_configs
 from domain.ratings.protocol import Granularity, Subject
 from repositories.ratings.base import BaseRatingRepository
-from repositories.ratings.common import fetch_map_results, fetch_match_results
-from repositories.ratings.elo.map_repository import TEAM_MAP_ELO_REPOSITORY, ensure_team_map_elo_schema
-from repositories.ratings.elo.match_repository import TEAM_MATCH_ELO_REPOSITORY, ensure_team_match_elo_schema
+from repositories.ratings.common import fetch_map_results
 from repositories.ratings.elo.repository import TEAM_ELO_REPOSITORY, ensure_team_elo_schema
 from repositories.ratings.glicko2.repository import TEAM_GLICKO2_REPOSITORY, ensure_team_glicko2_schema
 from repositories.ratings.openskill.repository import TEAM_OPENSKILL_REPOSITORY, ensure_team_openskill_schema
@@ -103,24 +97,6 @@ def _create_team_elo_calculator(system_config: BaseSystemConfig) -> TeamEloCalcu
     )
 
 
-def _create_team_match_elo_calculator(system_config: BaseSystemConfig) -> TeamMatchEloCalculator:
-    lookback_days = None if system_config.lookback_days == 0 else system_config.lookback_days
-    return TeamMatchEloCalculator(
-        params=system_config.parameters,
-        lookback_days=lookback_days,
-        as_of_time=datetime.now(UTC).replace(tzinfo=None),
-    )
-
-
-def _create_team_map_specific_elo_calculator(system_config: BaseSystemConfig) -> TeamMapSpecificEloCalculator:
-    lookback_days = None if system_config.lookback_days == 0 else system_config.lookback_days
-    return TeamMapSpecificEloCalculator(
-        params=system_config.parameters,
-        lookback_days=lookback_days,
-        as_of_time=datetime.now(UTC).replace(tzinfo=None),
-    )
-
-
 def _create_team_glicko2_calculator(system_config: BaseSystemConfig) -> TeamGlicko2Calculator:
     return TeamGlicko2Calculator(params=system_config.parameters)
 
@@ -131,10 +107,6 @@ def _create_team_openskill_calculator(system_config: BaseSystemConfig) -> TeamOp
 
 def _fetch_map_results(session: Session, lookback_days: int | None) -> list[Any]:
     return fetch_map_results(session, lookback_days=lookback_days)
-
-
-def _fetch_match_results(session: Session, lookback_days: int | None) -> list[Any]:
-    return fetch_match_results(session, lookback_days=lookback_days)
 
 
 def _register_defaults() -> None:
@@ -152,34 +124,6 @@ def _register_defaults() -> None:
             fetch_results=_fetch_map_results,
             repository=TEAM_ELO_REPOSITORY,
             ensure_schema=ensure_team_elo_schema,
-            process_method="process_map",
-        )
-    )
-    register(
-        RatingSystemDescriptor(
-            algorithm="elo",
-            granularity=Granularity.MATCH,
-            subject=Subject.TEAM,
-            config_dir=ROOT_DIR / "configs" / "ratings" / "elo_match",
-            load_configs=load_match_elo_system_configs,
-            create_calculator=_create_team_match_elo_calculator,
-            fetch_results=_fetch_match_results,
-            repository=TEAM_MATCH_ELO_REPOSITORY,
-            ensure_schema=ensure_team_match_elo_schema,
-            process_method="process_match",
-        )
-    )
-    register(
-        RatingSystemDescriptor(
-            algorithm="elo",
-            granularity=Granularity.MAP_SPECIFIC,
-            subject=Subject.TEAM,
-            config_dir=ROOT_DIR / "configs" / "ratings" / "elo_map",
-            load_configs=load_map_specific_elo_system_configs,
-            create_calculator=_create_team_map_specific_elo_calculator,
-            fetch_results=_fetch_map_results,
-            repository=TEAM_MAP_ELO_REPOSITORY,
-            ensure_schema=ensure_team_map_elo_schema,
             process_method="process_map",
         )
     )

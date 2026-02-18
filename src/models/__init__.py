@@ -7,8 +7,6 @@ from models.ratings import (
     OpenSkillSystem,
     TeamElo,
     TeamGlicko2,
-    TeamMapElo,
-    TeamMatchElo,
     TeamOpenSkill,
 )
 
@@ -18,8 +16,6 @@ __all__ = [
     "Glicko2System",
     "OpenSkillSystem",
     "TeamElo",
-    "TeamMapElo",
-    "TeamMatchElo",
     "TeamGlicko2",
     "TeamOpenSkill",
 ]

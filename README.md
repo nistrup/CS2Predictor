@@ -131,7 +131,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subje
 Show top teams for one Elo system, filtering inactive teams:
 
 ```bash
-venv/bin/python scripts/show_team_elo_top.py \
+venv/bin/python scripts/show_team_top.py elo \
   --system-name team_elo_default \
   --top-n 20 \
   --active-window-days 90 \
@@ -139,29 +139,6 @@ venv/bin/python scripts/show_team_elo_top.py \
 ```
 
 Tune by creating a new config file under `configs/ratings/elo/` (for example by copying `default.toml`), adjusting parameters, then rebuilding that config with `--config-name`. Automated hyperparameter tuning is intentionally deferred for now.
-
-Run `default.toml` for all default rating systems in one command:
-
-```bash
-venv/bin/python scripts/rebuild_all_default_ratings.py --config-name default.toml
-```
-
-Additional Elo variants:
-
-- Match-level Elo configs: `configs/ratings/elo_match/*.toml`
-- Map-specific Elo configs: `configs/ratings/elo_map/*.toml`
-
-Rebuild match-level Elo:
-
-```bash
-venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity match --subject team --config-name default.toml
-```
-
-Rebuild map-specific Elo:
-
-```bash
-venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map_specific --subject team --config-name default.toml
-```
 
 ## Team Glicko-2 v1
 
@@ -190,7 +167,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --s
 Show top teams for one Glicko-2 system, filtering inactive teams:
 
 ```bash
-venv/bin/python scripts/show_team_glicko2_top.py \
+venv/bin/python scripts/show_team_top.py glicko2 \
   --system-name team_glicko2_default \
   --top-n 20 \
   --active-window-days 90 \
@@ -226,7 +203,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map -
 Show top teams for one OpenSkill system, filtering inactive teams:
 
 ```bash
-venv/bin/python scripts/show_team_openskill_top.py \
+venv/bin/python scripts/show_team_top.py openskill \
   --system-name team_openskill_default \
   --top-n 20 \
   --active-window-days 90 \

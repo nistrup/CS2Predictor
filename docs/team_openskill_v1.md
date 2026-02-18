@@ -135,7 +135,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild openskill --granularity map -
 Show top teams:
 
 ```bash
-venv/bin/python scripts/show_team_openskill_top.py \
+venv/bin/python scripts/show_team_top.py openskill \
   --system-name team_openskill_default \
   --top-n 20 \
   --active-window-days 90 \

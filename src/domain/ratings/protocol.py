@@ -9,9 +9,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 class Granularity(str, Enum):
     """How finely ratings are tracked and updated."""
 
-    MATCH = "match"
     MAP = "map"
-    MAP_SPECIFIC = "map_specific"
 
 
 class Subject(str, Enum):
@@ -40,25 +38,9 @@ class MapLevelCalculator(RatingCalculator[E], Protocol[E]):
     def process_map(self, result: object) -> list[E]: ...
 
 
-@runtime_checkable
-class MatchLevelCalculator(RatingCalculator[E], Protocol[E]):
-    """Granularity.MATCH calculators."""
-
-    def process_match(self, result: object) -> list[E]: ...
-
-
-@runtime_checkable
-class MapSpecificCalculator(RatingCalculator[E], Protocol[E]):
-    """Granularity.MAP_SPECIFIC calculators."""
-
-    def process_map(self, result: object) -> list[E]: ...
-
-
 __all__ = [
     "Granularity",
     "MapLevelCalculator",
-    "MapSpecificCalculator",
-    "MatchLevelCalculator",
     "RatingCalculator",
     "Subject",
 ]

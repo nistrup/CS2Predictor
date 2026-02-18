@@ -88,7 +88,7 @@ def rebuild(
         Granularity,
         typer.Option(
             "--granularity",
-            help="Rating granularity (match, map, map_specific).",
+            help="Rating granularity (map).",
         ),
     ] = Granularity.MAP,
     subject: Annotated[

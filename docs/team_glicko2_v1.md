@@ -147,7 +147,7 @@ venv/bin/python scripts/rebuild_ratings.py rebuild glicko2 --granularity map --s
 Show top teams:
 
 ```bash
-venv/bin/python scripts/show_team_glicko2_top.py \
+venv/bin/python scripts/show_team_top.py glicko2 \
   --system-name team_glicko2_default \
   --top-n 20 \
   --active-window-days 90 \
