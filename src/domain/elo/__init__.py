@@ -1,12 +1,12 @@
 """Elo rating modules."""
 
-from domain.ratings.elo.calculator import (
+from domain.elo.calculator import (
     EloParameters,
     TeamEloCalculator,
     TeamEloEvent,
     calculate_expected_score,
 )
-from domain.ratings.elo.config import EloSystemConfig, load_elo_system_configs
+from domain.elo.config import EloSystemConfig, load_elo_system_configs
 
 __all__ = [
     "EloParameters",

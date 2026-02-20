@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from domain.ratings.common import TeamMapResult
-from domain.ratings.glicko2.calculator import (
+from domain.common import TeamMapResult
+from domain.glicko2.calculator import (
     Glicko2OpponentResult,
     Glicko2Parameters,
     TeamGlicko2Calculator,

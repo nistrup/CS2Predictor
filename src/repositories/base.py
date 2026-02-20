@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import delete, func, insert, inspect, select
+from sqlalchemy import and_, delete, func, insert, inspect, select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,8 @@ class BaseRatingRepository(Generic[SystemModelT, EventModelT, DomainEventT]):
         event_to_copy_row: Callable[[DomainEventT, int], tuple[Any, ...]] | None = None,
         reflect_tables: Sequence[str] = (),
         schema_migration: Callable[[Connection], None] | None = None,
+        system_defaults: dict[str, Any] | None = None,
+        system_match_fields: Sequence[str] = (),
     ) -> None:
         self.system_model = system_model
         self.event_model = event_model
@@ -42,6 +44,8 @@ class BaseRatingRepository(Generic[SystemModelT, EventModelT, DomainEventT]):
         self.event_to_copy_row = event_to_copy_row
         self.reflect_tables = tuple(reflect_tables)
         self.schema_migration = schema_migration
+        self.system_defaults = dict(system_defaults or {})
+        self.system_match_fields = tuple(system_match_fields)
         event_table_name = getattr(self.event_model, "__tablename__", "events")
         self._copy_support_cache_key = f"_{event_table_name}_supports_copy"
 
@@ -68,15 +72,34 @@ class BaseRatingRepository(Generic[SystemModelT, EventModelT, DomainEventT]):
         name: str,
         description: str | None,
         config_json: dict[str, Any],
+        system_fields: dict[str, Any] | None = None,
     ) -> SystemModelT:
         """Create or update the system metadata row."""
-        name_column = getattr(self.system_model, "name")
-        system = session.execute(select(self.system_model).where(name_column == name)).scalar_one_or_none()
+        effective_system_fields = dict(self.system_defaults)
+        if system_fields is not None:
+            effective_system_fields.update(system_fields)
+
+        lookup_values: dict[str, Any] = {"name": name}
+        for field in self.system_match_fields:
+            try:
+                lookup_values[field] = effective_system_fields[field]
+            except KeyError as exc:
+                raise ValueError(
+                    "Missing required system match field in upsert values: "
+                    f"field='{field}'"
+                ) from exc
+
+        filters = [getattr(self.system_model, field) == value for field, value in lookup_values.items()]
+        system = session.execute(select(self.system_model).where(and_(*filters))).scalar_one_or_none()
         if system is None:
+            create_values: dict[str, Any] = {
+                "name": name,
+                "description": description,
+                "config_json": config_json,
+            }
+            create_values.update(effective_system_fields)
             system = self.system_model(  # type: ignore[call-arg]
-                name=name,
-                description=description,
-                config_json=config_json,
+                **create_values,
             )
             session.add(system)
         else:

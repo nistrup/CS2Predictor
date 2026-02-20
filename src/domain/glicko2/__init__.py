@@ -1,6 +1,6 @@
 """Glicko-2 rating modules."""
 
-from domain.ratings.glicko2.calculator import (
+from domain.glicko2.calculator import (
     Glicko2OpponentResult,
     Glicko2Parameters,
     TeamGlicko2Calculator,
@@ -8,7 +8,7 @@ from domain.ratings.glicko2.calculator import (
     calculate_expected_score,
     update_glicko2_player,
 )
-from domain.ratings.glicko2.config import Glicko2SystemConfig, load_glicko2_system_configs
+from domain.glicko2.config import Glicko2SystemConfig, load_glicko2_system_configs
 
 __all__ = [
     "Glicko2OpponentResult",

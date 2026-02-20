@@ -6,7 +6,7 @@ todos:
     content: "Phase 1: Create protocol.py with RatingCalculator protocols, Granularity/Subject enums, and per-granularity calculator protocols"
     status: completed
   - id: phase-2
-    content: "Phase 2: Create repositories/ratings/base.py with generic BaseRatingRepository; migrate all 5 repositories to use it; remove duplicate fetch_map_results from elo/repository.py"
+    content: "Phase 2: Create repositories/base.py with generic BaseRatingRepository; migrate all 5 repositories to use it; remove duplicate fetch_map_results from repository.py"
     status: completed
   - id: phase-3
     content: "Phase 3: Create config_base.py with shared TOML scanning, duplicate-name checking, and BaseSystemConfig; simplify all config loaders"
@@ -146,7 +146,7 @@ graph TB
 
 Introduce the three-axis enums and calculator protocols. This is non-breaking -- existing calculators already satisfy the protocols.
 
-**New file: [src/domain/ratings/protocol.py**](src/domain/ratings/protocol.py)
+**New file: [src/domain/protocol.py**](src/domain/protocol.py)
 
 ```python
 from enum import Enum
@@ -201,7 +201,7 @@ No changes to existing calculator files -- they already satisfy these protocols.
 
 Extract the boilerplate CRUD that is identical across all 5+ repositories into a generic base.
 
-**New file: `src/repositories/ratings/base.py**`
+**New file: `src/repositories/base.py**`
 
 Common operations to extract:
 
@@ -229,9 +229,9 @@ class BaseRatingRepository(Generic[SystemModel, EventModel, DomainEvent]):
 
 The `entity_id_column` parameter ensures the repository is subject-agnostic: `count_tracked_entities()` counts distinct values of whatever column the subject uses (`team_id` for teams, `player_id` for players), without hardcoding either.
 
-Each concrete repository becomes ~20 lines defining the mapping functions and COPY SQL, instead of ~80+ lines of duplicated CRUD. The existing `fetch_map_results` and `fetch_match_results` in [src/repositories/ratings/common.py](src/repositories/ratings/common.py) stay as-is -- they are query logic, not CRUD scaffold.
+Each concrete repository becomes ~20 lines defining the mapping functions and COPY SQL, instead of ~80+ lines of duplicated CRUD. The existing `fetch_map_results` and `fetch_match_results` in [src/repositories/common.py](src/repositories/common.py) stay as-is -- they are query logic, not CRUD scaffold.
 
-**Important**: The duplicate `fetch_map_results` in [src/repositories/ratings/elo/repository.py](src/repositories/ratings/elo/repository.py) should be removed in favor of the shared one in `common.py`. This is already a bug waiting to happen.
+**Important**: The duplicate `fetch_map_results` in `src/repositories/repository.py` should be removed in favor of the shared one in `common.py`. This is already a bug waiting to happen.
 
 ## Phase 3: Config Loading Protocol + Shared Utilities
 
@@ -245,7 +245,7 @@ All config loaders follow the same pattern:
 
 Extract the generic parts into a shared utility:
 
-**New file: `src/domain/ratings/config_base.py**`
+**New file: `src/domain/config_base.py**`
 
 ```python
 @dataclass
@@ -269,7 +269,7 @@ Each algorithm's config module just defines its parameters dataclass and the `pa
 
 A central registry maps `(algorithm, granularity, subject)` to everything needed to rebuild that system:
 
-**New file: [src/domain/ratings/registry.py**](src/domain/ratings/registry.py)
+**New file: [src/domain/registry.py**](src/domain/registry.py)
 
 ```python
 @dataclass
@@ -297,7 +297,7 @@ Each algorithm module registers its descriptors at import time (or via a `regist
 
 Replace the 5 near-identical rebuild scripts with one pipeline and one CLI entrypoint.
 
-**New file: `src/domain/ratings/pipeline.py**`
+**New file: `src/domain/pipeline.py**`
 
 ```python
 def rebuild_single_system(
@@ -381,7 +381,7 @@ Versus today: ~6-8 full files with 400+ lines of duplicated scaffold per combina
 
 ## File Impact Summary
 
-- **New files** (5): `protocol.py`, `config_base.py`, `registry.py`, `pipeline.py`, `repositories/ratings/base.py`
+- **New files** (5): `protocol.py`, `config_base.py`, `registry.py`, `pipeline.py`, `repositories/base.py`
 - **Simplified files** (5): All 5 rebuild scripts collapse into 1
 - **Slimmed files** (5+): All repository files lose ~60% of their boilerplate
 - **Unchanged files**: All calculator files, all model files, all config TOML files

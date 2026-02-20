@@ -10,21 +10,19 @@ from typing import Any, Callable
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from domain.ratings.config_base import BaseSystemConfig
-from domain.ratings.elo.calculator import TeamEloCalculator
-from domain.ratings.elo.config import load_elo_system_configs
-from domain.ratings.glicko2.calculator import TeamGlicko2Calculator
-from domain.ratings.glicko2.config import load_glicko2_system_configs
-from domain.ratings.openskill.calculator import TeamOpenSkillCalculator
-from domain.ratings.openskill.config import load_openskill_system_configs
-from domain.ratings.protocol import Granularity, Subject
-from repositories.ratings.base import BaseRatingRepository
-from repositories.ratings.common import fetch_map_results
-from repositories.ratings.elo.repository import TEAM_ELO_REPOSITORY, ensure_team_elo_schema
-from repositories.ratings.glicko2.repository import TEAM_GLICKO2_REPOSITORY, ensure_team_glicko2_schema
-from repositories.ratings.openskill.repository import TEAM_OPENSKILL_REPOSITORY, ensure_team_openskill_schema
+from domain.config_base import BaseSystemConfig
+from domain.elo.calculator import TeamEloCalculator
+from domain.elo.config import load_elo_system_configs
+from domain.glicko2.calculator import TeamGlicko2Calculator
+from domain.glicko2.config import load_glicko2_system_configs
+from domain.openskill.calculator import TeamOpenSkillCalculator
+from domain.openskill.config import load_openskill_system_configs
+from domain.protocol import Granularity, Subject
+from repositories.base import BaseRatingRepository
+from repositories.common import fetch_map_results
+from repositories.repository import TEAM_RATING_REPOSITORY, ensure_team_rating_schema
 
-ROOT_DIR = Path(__file__).resolve().parents[3]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 LoadConfigsFn = Callable[[Path], list[BaseSystemConfig]]
 CreateCalculatorFn = Callable[[BaseSystemConfig], Any]
@@ -122,8 +120,8 @@ def _register_defaults() -> None:
             load_configs=load_elo_system_configs,
             create_calculator=_create_team_elo_calculator,
             fetch_results=_fetch_map_results,
-            repository=TEAM_ELO_REPOSITORY,
-            ensure_schema=ensure_team_elo_schema,
+            repository=TEAM_RATING_REPOSITORY,
+            ensure_schema=ensure_team_rating_schema,
             process_method="process_map",
         )
     )
@@ -136,8 +134,8 @@ def _register_defaults() -> None:
             load_configs=load_glicko2_system_configs,
             create_calculator=_create_team_glicko2_calculator,
             fetch_results=_fetch_map_results,
-            repository=TEAM_GLICKO2_REPOSITORY,
-            ensure_schema=ensure_team_glicko2_schema,
+            repository=TEAM_RATING_REPOSITORY,
+            ensure_schema=ensure_team_rating_schema,
             process_method="process_map",
         )
     )
@@ -150,8 +148,8 @@ def _register_defaults() -> None:
             load_configs=load_openskill_system_configs,
             create_calculator=_create_team_openskill_calculator,
             fetch_results=_fetch_map_results,
-            repository=TEAM_OPENSKILL_REPOSITORY,
-            ensure_schema=ensure_team_openskill_schema,
+            repository=TEAM_RATING_REPOSITORY,
+            ensure_schema=ensure_team_rating_schema,
             process_method="process_map",
         )
     )

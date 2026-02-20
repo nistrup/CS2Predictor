@@ -1,1 +1,0 @@
-"""OpenSkill persistence repository."""

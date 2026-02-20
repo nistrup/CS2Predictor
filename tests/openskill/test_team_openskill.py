@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from domain.ratings.common import TeamMapResult
-from domain.ratings.openskill.calculator import OpenSkillParameters, TeamOpenSkillCalculator
+from domain.common import TeamMapResult
+from domain.openskill.calculator import OpenSkillParameters, TeamOpenSkillCalculator
 
 
 def test_openskill_parameter_defaults_are_expected_constants() -> None:

@@ -8,7 +8,7 @@ from datetime import datetime
 from math import exp, log, pi, sqrt
 from typing import Final
 
-from domain.ratings.common import TeamMapResult
+from domain.common import TeamMapResult
 
 GLICKO2_SCALE: Final[float] = 173.7178
 DEFAULT_RATING: Final[float] = 1500.0

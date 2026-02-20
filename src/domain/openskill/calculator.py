@@ -7,7 +7,7 @@ from datetime import datetime
 
 from openskill.models import PlackettLuce
 
-from domain.ratings.common import TeamMapResult
+from domain.common import TeamMapResult
 
 
 @dataclass(frozen=True)

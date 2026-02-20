@@ -35,9 +35,9 @@ Primary target: **winner of a given matchup** (team A vs team B), for both pre-g
 ## Project Structure
 
 - `src/`: Python package code (core logic and repositories).
-- `src/domain/ratings/`: rating-system modules grouped by algorithm (`elo`, `glicko2`, `openskill`) plus shared types.
-- `src/models/ratings/`: ORM models grouped by algorithm, matching `src/domain/ratings/`.
-- `src/repositories/ratings/`: persistence modules grouped by algorithm, matching `src/domain/ratings/`.
+- `src/domain/`: rating-system modules grouped by algorithm (`elo`, `glicko2`, `openskill`) plus shared types.
+- `src/models/`: ORM models including unified rating persistence (`rating_systems`, `team_ratings`).
+- `src/repositories/`: unified persistence layer and shared repository helpers.
 - `scripts/`: executable scripts for backfills and data jobs.
 - `tests/`: unit tests for core calculation logic.
 - `docs/`: design and reference documentation.
@@ -47,8 +47,8 @@ Primary target: **winner of a given matchup** (team A vs team B), for both pre-g
 
 Team Elo v1 is a map-level, team-only Elo system with per-system versioning and many tunable parameters.
 
-- `elo_systems`: stores each system definition and config snapshot.
-- `team_elo`: stores one row per team per map, keyed by `elo_system_id`.
+- `rating_systems`: stores each system definition and config snapshot (algorithm/granularity/subject scoped).
+- `team_ratings`: stores one row per team per map, keyed by `rating_system_id`.
 - `configs/ratings/elo/*.toml`: file-based Elo system definitions.
 
 Implementation docs:
@@ -122,7 +122,7 @@ Run a single config:
 venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team --config-name default.toml
 ```
 
-Dry run (compute without writing to `team_elo`):
+Dry run (compute without writing to `team_ratings`):
 
 ```bash
 venv/bin/python scripts/rebuild_ratings.py rebuild elo --granularity map --subject team --dry-run
@@ -144,8 +144,8 @@ Tune by creating a new config file under `configs/ratings/elo/` (for example by 
 
 Team Glicko-2 v1 is implemented in parallel to Elo for side-by-side comparison.
 
-- `glicko2_systems`: stores each Glicko-2 system definition and config snapshot.
-- `team_glicko2`: stores one row per team per map, keyed by `glicko2_system_id`.
+- `rating_systems`: stores each Glicko-2 system definition and config snapshot.
+- `team_ratings`: stores Glicko-2 events in unified form, keyed by `rating_system_id`.
 - `configs/ratings/glicko2/*.toml`: file-based Glicko-2 system definitions.
 
 Implementation docs:
@@ -180,8 +180,8 @@ Tune by creating a new config file under `configs/ratings/glicko2/` (for example
 
 Team OpenSkill v1 is implemented in parallel to Elo/Glicko-2 using the OpenSkill Plackett-Luce model.
 
-- `openskill_systems`: stores each OpenSkill system definition and config snapshot.
-- `team_openskill`: stores one row per team per map, keyed by `openskill_system_id`.
+- `rating_systems`: stores each OpenSkill system definition and config snapshot.
+- `team_ratings`: stores OpenSkill events in unified form, keyed by `rating_system_id`.
 - `configs/ratings/openskill/*.toml`: file-based OpenSkill system definitions.
 
 Implementation docs:

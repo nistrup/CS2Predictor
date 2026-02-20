@@ -15,9 +15,9 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from db import create_db_engine, create_session_factory
-from domain.ratings.pipeline import rebuild_single_system
-from domain.ratings.protocol import Granularity, Subject
-from domain.ratings.registry import RatingSystemDescriptor, get, get_all
+from domain.pipeline import rebuild_single_system
+from domain.protocol import Granularity, Subject
+from domain.registry import RatingSystemDescriptor, get, get_all
 
 DEFAULT_DB_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/cs2predictor"
 

@@ -81,81 +81,93 @@ def _fetch_rank_rows(
         """
         WITH elo_system AS (
             SELECT id
-            FROM elo_systems
-            WHERE name = :elo_system_name
+            FROM rating_systems
+            WHERE
+                name = :elo_system_name
+                AND algorithm = 'elo'
+                AND granularity = 'map'
+                AND subject = 'team'
             ORDER BY id DESC
             LIMIT 1
         ),
         glicko2_system AS (
             SELECT id
-            FROM glicko2_systems
-            WHERE name = :glicko2_system_name
+            FROM rating_systems
+            WHERE
+                name = :glicko2_system_name
+                AND algorithm = 'glicko2'
+                AND granularity = 'map'
+                AND subject = 'team'
             ORDER BY id DESC
             LIMIT 1
         ),
         openskill_system AS (
             SELECT id
-            FROM openskill_systems
-            WHERE name = :openskill_system_name
+            FROM rating_systems
+            WHERE
+                name = :openskill_system_name
+                AND algorithm = 'openskill'
+                AND granularity = 'map'
+                AND subject = 'team'
             ORDER BY id DESC
             LIMIT 1
         ),
         elo_latest AS (
             SELECT
-                te.team_id,
-                te.post_elo,
-                te.event_time,
+                tr.team_id,
+                tr.post_ranking,
+                tr.event_time,
                 ROW_NUMBER() OVER (
-                    PARTITION BY te.team_id
-                    ORDER BY te.event_time DESC, te.map_id DESC, te.id DESC
+                    PARTITION BY tr.team_id
+                    ORDER BY tr.event_time DESC, tr.map_id DESC, tr.id DESC
                 ) AS rn
-            FROM team_elo te
-            JOIN elo_system es ON es.id = te.elo_system_id
+            FROM team_ratings tr
+            JOIN elo_system es ON es.id = tr.rating_system_id
         ),
         elo_ranked AS (
             SELECT
                 team_id,
-                ROW_NUMBER() OVER (ORDER BY post_elo DESC, team_id) AS elo_rank,
+                ROW_NUMBER() OVER (ORDER BY post_ranking DESC, team_id) AS elo_rank,
                 event_time AS elo_last_event
             FROM elo_latest
             WHERE rn = 1
         ),
         glicko2_latest AS (
             SELECT
-                tg.team_id,
-                tg.post_rating,
-                tg.event_time,
+                tr.team_id,
+                tr.post_ranking,
+                tr.event_time,
                 ROW_NUMBER() OVER (
-                    PARTITION BY tg.team_id
-                    ORDER BY tg.event_time DESC, tg.map_id DESC, tg.id DESC
+                    PARTITION BY tr.team_id
+                    ORDER BY tr.event_time DESC, tr.map_id DESC, tr.id DESC
                 ) AS rn
-            FROM team_glicko2 tg
-            JOIN glicko2_system gs ON gs.id = tg.glicko2_system_id
+            FROM team_ratings tr
+            JOIN glicko2_system gs ON gs.id = tr.rating_system_id
         ),
         glicko2_ranked AS (
             SELECT
                 team_id,
-                ROW_NUMBER() OVER (ORDER BY post_rating DESC, team_id) AS glicko2_rank,
+                ROW_NUMBER() OVER (ORDER BY post_ranking DESC, team_id) AS glicko2_rank,
                 event_time AS glicko2_last_event
             FROM glicko2_latest
             WHERE rn = 1
         ),
         openskill_latest AS (
             SELECT
-                tos.team_id,
-                tos.post_ordinal,
-                tos.event_time,
+                tr.team_id,
+                tr.post_ranking,
+                tr.event_time,
                 ROW_NUMBER() OVER (
-                    PARTITION BY tos.team_id
-                    ORDER BY tos.event_time DESC, tos.map_id DESC, tos.id DESC
+                    PARTITION BY tr.team_id
+                    ORDER BY tr.event_time DESC, tr.map_id DESC, tr.id DESC
                 ) AS rn
-            FROM team_openskill tos
-            JOIN openskill_system os ON os.id = tos.openskill_system_id
+            FROM team_ratings tr
+            JOIN openskill_system os ON os.id = tr.rating_system_id
         ),
         openskill_ranked AS (
             SELECT
                 team_id,
-                ROW_NUMBER() OVER (ORDER BY post_ordinal DESC, team_id) AS openskill_rank,
+                ROW_NUMBER() OVER (ORDER BY post_ranking DESC, team_id) AS openskill_rank,
                 event_time AS openskill_last_event
             FROM openskill_latest
             WHERE rn = 1
@@ -297,20 +309,20 @@ def show_hltv_target_comparison(
     ] = 20,
     elo_system_name: Annotated[
         str,
-        typer.Option("--elo-system-name", help="System name from elo_systems.name."),
+        typer.Option("--elo-system-name", help="System name from rating_systems.name."),
     ] = "team_elo_default",
     glicko2_system_name: Annotated[
         str,
         typer.Option(
             "--glicko2-system-name",
-            help="System name from glicko2_systems.name.",
+            help="System name from rating_systems.name.",
         ),
     ] = "team_glicko2_default",
     openskill_system_name: Annotated[
         str,
         typer.Option(
             "--openskill-system-name",
-            help="System name from openskill_systems.name.",
+            help="System name from rating_systems.name.",
         ),
     ] = "team_openskill_default",
     show_metrics: Annotated[

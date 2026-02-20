@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from domain.ratings.elo.config import load_elo_system_configs
+from domain.elo.config import load_elo_system_configs
 
 
 def test_load_elo_system_configs_from_directory(tmp_path: Path) -> None:

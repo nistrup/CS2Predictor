@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from domain.ratings.config_base import BaseSystemConfig, load_system_configs
-from domain.ratings.elo.calculator import EloParameters
+from domain.config_base import BaseSystemConfig, load_system_configs
+from domain.elo.calculator import EloParameters
 
 
 @dataclass(frozen=True)

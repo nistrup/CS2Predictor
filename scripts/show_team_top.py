@@ -25,9 +25,6 @@ DEFAULT_DB_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/cs2predi
 class AlgorithmSpec:
     algorithm: str
     default_system_name: str
-    systems_table: str
-    events_table: str
-    events_system_id_column: str
     primary_column: str
     primary_label: str
     extra_columns: tuple[tuple[str, str], ...]
@@ -37,32 +34,23 @@ ALGORITHM_SPECS = {
     "elo": AlgorithmSpec(
         algorithm="elo",
         default_system_name="team_elo_default",
-        systems_table="elo_systems",
-        events_table="team_elo",
-        events_system_id_column="elo_system_id",
-        primary_column="post_elo",
+        primary_column="post_ranking",
         primary_label="elo",
         extra_columns=(),
     ),
     "glicko2": AlgorithmSpec(
         algorithm="glicko2",
         default_system_name="team_glicko2_default",
-        systems_table="glicko2_systems",
-        events_table="team_glicko2",
-        events_system_id_column="glicko2_system_id",
-        primary_column="post_rating",
+        primary_column="post_ranking",
         primary_label="rating",
-        extra_columns=(("post_rd", "post_rd"), ("post_volatility", "post_volatility")),
+        extra_columns=(),
     ),
     "openskill": AlgorithmSpec(
         algorithm="openskill",
         default_system_name="team_openskill_default",
-        systems_table="openskill_systems",
-        events_table="team_openskill",
-        events_system_id_column="openskill_system_id",
-        primary_column="post_ordinal",
+        primary_column="post_ranking",
         primary_label="ordinal",
-        extra_columns=(("post_mu", "post_mu"), ("post_sigma", "post_sigma")),
+        extra_columns=(),
     ),
 }
 
@@ -86,7 +74,7 @@ def _get_algorithm_spec(algorithm: str) -> AlgorithmSpec:
 
 def _build_statement(spec: AlgorithmSpec):
     latest_extra_columns = "".join(
-        f",\n                te.{column_name} AS {alias}"
+        f",\n                tr.{column_name} AS {alias}"
         for column_name, alias in spec.extra_columns
     )
     select_extra_columns = "".join(
@@ -98,37 +86,41 @@ def _build_statement(spec: AlgorithmSpec):
         f"""
         WITH target_system AS (
             SELECT id
-            FROM {spec.systems_table}
-            WHERE name = :system_name
+            FROM rating_systems
+            WHERE
+                name = :system_name
+                AND algorithm = :algorithm
+                AND granularity = 'map'
+                AND subject = 'team'
             ORDER BY id DESC
             LIMIT 1
         ),
         latest_per_team AS (
             SELECT
-                te.team_id,
-                te.{spec.primary_column} AS primary_value{latest_extra_columns},
-                te.event_time,
-                te.map_id,
+                tr.team_id,
+                tr.{spec.primary_column} AS primary_value{latest_extra_columns},
+                tr.event_time,
+                tr.map_id,
                 ROW_NUMBER() OVER (
-                    PARTITION BY te.team_id
-                    ORDER BY te.event_time DESC, te.map_id DESC, te.id DESC
+                    PARTITION BY tr.team_id
+                    ORDER BY tr.event_time DESC, tr.map_id DESC, tr.id DESC
                 ) AS rn
-            FROM {spec.events_table} te
-            JOIN target_system ts ON ts.id = te.{spec.events_system_id_column}
+            FROM team_ratings tr
+            JOIN target_system ts ON ts.id = tr.rating_system_id
         ),
         recent_activity AS (
             SELECT
-                te.team_id,
+                tr.team_id,
                 COUNT(*)::int AS recent_maps
-            FROM {spec.events_table} te
-            JOIN target_system ts ON ts.id = te.{spec.events_system_id_column}
+            FROM team_ratings tr
+            JOIN target_system ts ON ts.id = tr.rating_system_id
             WHERE (
                 :active_window_days = 0
-                OR te.event_time >= (
+                OR tr.event_time >= (
                     CURRENT_TIMESTAMP - make_interval(days => :active_window_days)
                 )
             )
-            GROUP BY te.team_id
+            GROUP BY tr.team_id
         )
         SELECT
             t.name AS team_name,
@@ -158,13 +150,13 @@ def _render_row(index: int, row, spec: AlgorithmSpec) -> str:
     if spec.algorithm == "glicko2":
         return (
             f"{index:2d}. {row.team_name:<20} "
-            f"rating={row.primary_value:8.2f} rd={row.post_rd:7.2f} vol={row.post_volatility:7.5f} "
+            f"rating={row.primary_value:8.2f} "
             f"recent_maps={row.recent_maps:3d} last_event={row.event_time}"
         )
 
     return (
         f"{index:2d}. {row.team_name:<20} "
-        f"ordinal={row.primary_value:8.3f} mu={row.post_mu:7.3f} sigma={row.post_sigma:7.3f} "
+        f"ordinal={row.primary_value:8.3f} "
         f"recent_maps={row.recent_maps:3d} last_event={row.event_time}"
     )
 
@@ -229,6 +221,7 @@ def show_team_top(
         rows = connection.execute(
             statement,
             {
+                "algorithm": spec.algorithm,
                 "system_name": resolved_system_name,
                 "top_n": top_n,
                 "active_window_days": active_window_days,

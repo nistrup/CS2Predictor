@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from domain.ratings.common import TeamMapResult
+from domain.common import TeamMapResult
 
 _metadata = MetaData()
 

@@ -6,8 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from domain.ratings.config_base import BaseSystemConfig
-from domain.ratings.registry import RatingSystemDescriptor
+from domain.config_base import BaseSystemConfig
+from domain.registry import RatingSystemDescriptor
 
 
 @dataclass(frozen=True)
@@ -52,6 +52,11 @@ def rebuild_single_system(
             name=system_config.name,
             description=system_config.description,
             config_json=system_config.as_config_json(),
+            system_fields={
+                "algorithm": descriptor.algorithm,
+                "granularity": descriptor.granularity.value,
+                "subject": descriptor.subject.value,
+            },
         )
         system_id = int(getattr(system, "id"))
 

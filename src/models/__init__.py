@@ -1,21 +1,11 @@
 """ORM models."""
 
 from models.base import Base
-from models.ratings import (
-    EloSystem,
-    Glicko2System,
-    OpenSkillSystem,
-    TeamElo,
-    TeamGlicko2,
-    TeamOpenSkill,
-)
+from models.event import TeamRating
+from models.system import RatingSystem
 
 __all__ = [
     "Base",
-    "EloSystem",
-    "Glicko2System",
-    "OpenSkillSystem",
-    "TeamElo",
-    "TeamGlicko2",
-    "TeamOpenSkill",
+    "RatingSystem",
+    "TeamRating",
 ]

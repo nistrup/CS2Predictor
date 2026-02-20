@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from domain.ratings.config_base import BaseSystemConfig, load_system_configs
-from domain.ratings.openskill.calculator import OpenSkillParameters
+from domain.config_base import BaseSystemConfig, load_system_configs
+from domain.openskill.calculator import OpenSkillParameters
 
 
 @dataclass(frozen=True)

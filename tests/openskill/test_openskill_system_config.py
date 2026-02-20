@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from domain.ratings.openskill.config import load_openskill_system_configs
+from domain.openskill.config import load_openskill_system_configs
 
 
 def test_load_openskill_system_configs_from_directory(tmp_path: Path) -> None:

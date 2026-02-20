@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from domain.ratings.glicko2.config import load_glicko2_system_configs
+from domain.glicko2.config import load_glicko2_system_configs
 
 
 def test_load_glicko2_system_configs_from_directory(tmp_path: Path) -> None:

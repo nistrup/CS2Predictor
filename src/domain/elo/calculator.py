@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import exp, log
 
-from domain.ratings.common import TeamMapResult
+from domain.common import TeamMapResult
 
 
 @dataclass(frozen=True)
